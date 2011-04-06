@@ -1,0 +1,8 @@
+$VAR1 = 'Deployment_Lab';
+$VAR1 = 'Development';
+$VAR1 = 'Infrastructure';
+$VAR1 = 'Quality_Assurance';
+$VAR1 = 'Testing';
+$VAR1 = 'Workstations';
+
+Successfully created virtual machine: 'badger.eftdomain.net' under host lab01.eftdomain.net

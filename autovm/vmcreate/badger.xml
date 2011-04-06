@@ -1,0 +1,29 @@
+<!-- This is a sample xml file for creating a virtual machine
+Following default values of the tags are set
+Name                 TestVM
+Host                 ABC.XXX.XXX
+Datacenter           ha-datacenter
+Guest-Id             winXPProGuest
+Datastore            storage1
+Disksize(in KB)      4194304(4GB)
+Memory(in MB)        256 
+Number-of-Processor  1
+Nic-Network          VM Network
+Nic-Poweron          0
+These values can be changed according to the requirement and network-->
+
+<Virtual-Machines>
+         <Virtual-Machine>
+            <Name>badger.eftdomain.net</Name>
+           	<Host>lab01.eftdomain.net</Host>
+	        <Datacenter>Nashville</Datacenter>
+           	<Guest-Id>rhel5Guest</Guest-Id>
+           	<Datastore>LUN_300</Datastore>
+           	<Disksize>10485760</Disksize>
+           	<Memory>512</Memory>
+           	<Number-of-Processor>1</Number-of-Processor>
+           	<Nic-Network>VLAN_113</Nic-Network>
+           	<Nic-Poweron>0</Nic-Poweron>
+           	<Resource-Pool>Deployment_Lab</Resource-Pool>
+         </Virtual-Machine>
+</Virtual-Machines>

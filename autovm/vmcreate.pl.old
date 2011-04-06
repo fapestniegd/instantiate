@@ -1,0 +1,821 @@
+#!/usr/bin/perl -w
+#
+# Copyright 2006 VMware, Inc.  All rights reserved.
+#
+
+use strict;
+use warnings;
+
+use VMware::VIRuntime;
+use VMware::VILib;
+use XML::LibXML;
+use XML::Parser;
+
+my %opts = (
+   filename => {
+      type => "=s",
+      help => "The location of the input xml file",
+      required => 0,
+      default => "./vmcreate.xml",
+   },
+   schema => {
+      type => "=s",
+      help => "The location of the schema file",
+      required => 0,
+      default => "./vmcreate.xsd",
+   },
+);
+
+Opts::add_options(%opts);
+Opts::parse();
+Opts::validate(\&validate);
+
+Util::connect();
+
+# Perform create operation
+create_vms();
+
+Util::disconnect();
+
+
+# This subroutine parses the input xml file to retrieve all the
+# parameters specified in the file and passes these parameters
+# to create_vm subroutine to create a single virtual machine
+# =============================================================
+sub create_vms {
+   my $parser = XML::LibXML->new();
+   my $tree = $parser->parse_file(Opts::get_option('filename'));
+   my $root = $tree->getDocumentElement;
+   my @vms = $root->findnodes('VM');
+   my $retval;
+
+   foreach (@vms) {
+      # default values will be used in case
+      # the user do not specify some parameters
+      my $memory = 256;  # in MB
+      my $num_cpus = 1;
+      my $guestid = 'winXPProGuest';
+      my $disksize = 4096;  # in KB
+      my $nic_poweron = 1;
+      my $iso_file = "[]/dev/null";
+
+      # If the properties are specified, the default values are not used.
+      if ($_->findvalue('guestid')) {
+         $guestid = $_->findvalue('guestid');
+      }
+      if ($_->findvalue('disksize')) {
+         $disksize = $_->findvalue('disksize');
+      }
+      if ($_->findvalue('memory')) {
+         $memory = $_->findvalue('memory');
+      }
+      if ($_->findvalue('num_cpus')) {
+         $num_cpus = $_->findvalue('num_cpus');
+      }
+      if ($_->findvalue('nic_poweron')) {
+         $nic_poweron = $_->findvalue('nic_poweron');
+      }
+      if ($_->findvalue('iso_file')) {
+         $iso_file = $_->findvalue('iso_file');
+      }
+
+      $retval = create_vm(vmname => $_->findvalue('vmname'),
+                vmhost => $_->findvalue('vmhost'),
+                datacenter => $_->findvalue('datacenter'),
+                guestid => $guestid,
+                datastore => $_->findvalue('datastore'),
+                disksize => $disksize,
+                memory => $memory,
+                num_cpus => $num_cpus,
+                nic_network => $_->findvalue('nic_network'),
+                nic_poweron => $nic_poweron);
+    }
+    exit $retval;
+}
+
+
+# create a virtual machine
+# ========================
+sub create_vm {
+   my %args = @_;
+   my @vm_devices;
+   my $host_view = Vim::find_entity_view(view_type => 'HostSystem',
+                                         filter => {'name' => $args{vmhost}});
+   if (!$host_view) {
+       Util::trace(0, "\nError creating VM '$args{vmname}': "
+                    . "Host '$args{vmhost}' not found\n");
+       return;
+   }
+
+   my %ds_info = get_datastore(host_view => $host_view,
+                               datastore => $args{datastore},
+                               disksize => $args{disksize});
+
+   if ($ds_info{mor} eq 0) {
+      if ($ds_info{name} eq 'datastore_error') {
+         Util::trace(0, "\nError creating VM '$args{vmname}': "
+                      . "Datastore $args{datastore} not available.\n");
+         return;
+      }
+      if ($ds_info{name} eq 'disksize_error') {
+         Util::trace(0, "\nError creating VM '$args{vmname}': The free space "
+                      . "available is less than the specified disksize.\n");
+         return;
+      }
+   }
+   my $ds_path = "[" . $ds_info{name} . "]";
+
+   my $controller_vm_dev_conf_spec = create_controller();
+   my $disk_vm_dev_conf_spec =
+      create_virtual_disk(ds_path => $ds_path, disksize => $args{disksize});
+
+   my %temp_hash;
+   if($args{guestid}=~m/64Guest/){
+       %temp_hash = get_e1000_network(network_name => $args{nic_network},
+                                            poweron => $args{nic_poweron},
+                                           host_view => $host_view);
+   }else{
+       %temp_hash = get_vlance_network(network_name => $args{nic_network},
+                                            poweron => $args{nic_poweron},
+                                           host_view => $host_view);
+   }
+   if($temp_hash{'error'} eq 0) {
+      push(@vm_devices, $temp_hash{'network_conf'});
+   } elsif ($temp_hash{'error'} eq 1) {
+      Util::trace(0, "\nError creating VM '$args{vmname}': "
+                    . "Network '$args{nic_network}' not found\n");
+      return;
+   }
+   #my $ide_controler_dev_conf_spec = create_ide_controller();
+   #my $cdrom_vm_dev_conf_spec = create_cdrom($ide_controler_dev_conf_spec, $args{iso_file});
+
+   #push(@vm_devices, $controller_vm_dev_conf_spec);
+   #push(@vm_devices, $disk_vm_dev_conf_spec);
+   #push(@vm_devices, $ide_controler_dev_conf_spec);
+   #push(@vm_devices, $cdrom_vm_dev_conf_spec);
+   
+
+   my $files = VirtualMachineFileInfo->new(logDirectory => undef,
+                                           snapshotDirectory => undef,
+                                           suspendDirectory => undef,
+                                           vmPathName => $ds_path);
+   my $vm_config_spec = VirtualMachineConfigSpec->new(
+                                             name => $args{vmname},
+                                             memoryMB => $args{memory},
+                                             files => $files,
+                                             numCPUs => $args{num_cpus},
+                                             guestId => $args{guestid},
+                                             deviceChange => \@vm_devices);
+                                             
+   my $datacenter = Vim::find_entity_view(view_type => 'Datacenter',
+                                       filter => { name => $args{datacenter}});
+
+   if(!$datacenter) {
+      Util::trace(0, "\nError creating VM '$args{vmname}': "
+                   . "Datacenter '$args{datacenter}' not found\n");
+      return;
+   }
+   my $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
+
+   my $comp_res_view = Vim::get_view(mo_ref => $host_view->parent);
+
+   eval {
+   $vm_folder_view->CreateVM(config => $vm_config_spec,
+                             pool => $comp_res_view->resourcePool);
+    };
+     if ($@) {
+         Util::trace(0, "\nError creating VM '$args{vmname}': ");
+         if (ref($@) eq 'SoapFault') {
+            if (ref($@->detail) eq 'PlatformConfigFault') {
+               Util::trace(0, "Invalid VM configuration: "
+                            . ${$@->detail}{'text'} . "\n");
+               return -1;
+            }
+            if (ref($@->detail) eq 'InvalidDeviceSpec') {
+               Util::trace(0, "Invalid Device configuration: "
+                            . ${$@->detail}{'property'} . "\n");
+               return -1;
+            }
+            if (ref($@->detail) eq 'DuplicateName') {
+               Util::trace(0, "Virtual machine already exists.\n");
+               return -3;
+            }
+            Util::trace(0, "\n" . $@ . "\n");
+            return -4;
+         } else {
+            Util::trace(0, "\n" . $@ . "\n");
+            return -5;
+         }
+      }
+Util::trace(0, "\nSuccessfully created virtual machine: '$args{vmname}'\n");
+return 0;
+}
+
+sub create_ide_controller {
+    my $idespec = VirtualDeviceConfigSpec->new( 
+        device => VirtualIDEController->new(busNumber  => 0,
+                                            key        => int(200), # IDE Controllers start at 200
+                                            device     => [0],
+                                            deviceInfo => Description->new( label   => "My IDE 0",
+                                                                            summary => "My IDE 0 Label" )),
+        operation => VirtualDeviceConfigSpecOperation->new( 'add' ) );
+    return $idespec;
+}
+
+sub create_cdrom {
+    my $idespec=shift;
+    my $isofile=shift;
+    my $cdspec = VirtualDeviceConfigSpec->new(
+                     device => VirtualCdrom->new( 
+                         backing => VirtualCdromIsoBackingInfo->new( fileName => $isofile,
+                                                                     exclusive => 0
+                                                                   ),
+                         connectable => VirtualDeviceConnectInfo->new( allowGuestControl => 1,
+                                                                       connected         => 0, #needed & documented as not.
+                                                                       startConnected    => 1 ),
+                         controllerKey => $idespec->device->key, 
+                         key => int(3000), #All CDrom seem have a key starting at 3000
+                         unitNumber => 0),
+                     operation => VirtualDeviceConfigSpecOperation->new( 'add' ) );
+    return $cdspec;
+}
+
+# create virtual device config spec for controller
+# ================================================
+sub create_controller {
+   my $controller =
+      VirtualLsiLogicController->new(key => 0,
+                                     device => [0],
+                                     busNumber => 0,
+                                     sharedBus => VirtualSCSISharing->new('noSharing'));
+
+   my $controller_vm_dev_conf_spec =
+      VirtualDeviceConfigSpec->new(device => $controller,
+         operation => VirtualDeviceConfigSpecOperation->new('add'));
+   return $controller_vm_dev_conf_spec;
+}
+
+
+# create virtual device config spec for disk
+# ==========================================
+sub create_virtual_disk {
+   my %args = @_;
+   my $ds_path = $args{ds_path};
+   my $disksize = $args{disksize};
+
+   my $disk_backing_info =
+      VirtualDiskFlatVer2BackingInfo->new(diskMode => 'persistent',
+                                          fileName => $ds_path);
+
+   my $disk = VirtualDisk->new(backing => $disk_backing_info,
+                               controllerKey => 0,
+                               key => 0,
+                               unitNumber => 0,
+                               capacityInKB => $disksize);
+
+   my $disk_vm_dev_conf_spec =
+      VirtualDeviceConfigSpec->new(device => $disk,
+               fileOperation => VirtualDeviceConfigSpecFileOperation->new('create'),
+               operation => VirtualDeviceConfigSpecOperation->new('add'));
+   return $disk_vm_dev_conf_spec;
+}
+
+
+# get network configuration
+# =========================
+sub get_vlance_network {
+   my %args = @_;
+   my $network_name = $args{network_name};
+   my $poweron = $args{poweron};
+   my $host_view = $args{host_view};
+   my $network = undef;
+   my $unit_num = 1;  # 1 since 0 is used by disk
+
+   if($network_name) {
+      my $network_list = Vim::get_views(mo_ref_array => $host_view->network);
+      foreach (@$network_list) {
+         if($network_name eq $_->name) {
+            $network = $_;
+            my $nic_backing_info =
+               VirtualEthernetCardNetworkBackingInfo->new(deviceName => $network_name,
+                                                          network => $network);
+
+            my $vd_connect_info =
+               VirtualDeviceConnectInfo->new(allowGuestControl => 1,
+                                             connected => 0,
+                                             startConnected => $poweron);
+
+            my $nic = VirtualPCNet32->new(backing => $nic_backing_info,
+                                          key => 0,
+                                          unitNumber => $unit_num,
+                                          addressType => 'generated',
+                                          connectable => $vd_connect_info);
+
+            my $nic_vm_dev_conf_spec =
+               VirtualDeviceConfigSpec->new(device => $nic,
+                     operation => VirtualDeviceConfigSpecOperation->new('add'));
+
+            return (error => 0, network_conf => $nic_vm_dev_conf_spec);
+         }
+      }
+      if (!defined($network)) {
+      # no network found
+       return (error => 1);
+      }
+   }
+    # default network will be used
+    return (error => 2);
+}
+
+# get network configuration
+# =========================
+sub get_e1000_network {
+   my %args = @_;
+   my $network_name = $args{network_name};
+   my $poweron = $args{poweron};
+   my $host_view = $args{host_view};
+   my $network = undef;
+   my $unit_num = 1;  # 1 since 0 is used by disk
+
+   if($network_name) {
+      my $network_list = Vim::get_views(mo_ref_array => $host_view->network);
+      foreach (@$network_list) {
+         if($network_name eq $_->name) {
+            $network = $_;
+            my $nic_backing_info =
+               VirtualEthernetCardNetworkBackingInfo->new(deviceName => $network_name,
+                                                          network => $network);
+
+            my $vd_connect_info =
+               VirtualDeviceConnectInfo->new(allowGuestControl => 1,
+                                             connected => 0,
+                                             startConnected => $poweron);
+
+            my $nic = VirtualE1000->new(backing => $nic_backing_info,
+                                          key => 0,
+                                          unitNumber => $unit_num,
+                                          addressType => 'generated',
+                                          connectable => $vd_connect_info);
+
+            my $nic_vm_dev_conf_spec =
+               VirtualDeviceConfigSpec->new(device => $nic,
+                     operation => VirtualDeviceConfigSpecOperation->new('add'));
+
+            return (error => 0, network_conf => $nic_vm_dev_conf_spec);
+         }
+      }
+      if (!defined($network)) {
+      # no network found
+       return (error => 1);
+      }
+   }
+    # default network will be used
+    return (error => 2);
+}
+
+
+# Retrieve datastore
+# ==================
+sub get_datastore {
+   my %args = @_;
+   my $host_view = $args{host_view};
+   my $config_datastore = $args{datastore};
+   my $disksize = $args{disksize};
+   my $name = undef;
+   my $mor = undef;
+
+   my $ds_mor_array = $host_view->datastore;
+   my $datastores = Vim::get_views(mo_ref_array => $ds_mor_array);
+   my $found_datastore = 0;
+
+   if($config_datastore) {
+      foreach (@$datastores) {
+         $name = $_->summary->name;
+         if($name eq $config_datastore) { # if datastore available to host
+            $found_datastore = 1;
+            $mor = $_->{mo_ref};
+            last;
+         }
+      }
+   }
+   else {
+      foreach (@$datastores) {
+         my $ds_disksize = ($_->summary->freeSpace)/1024;
+         if($ds_disksize > $disksize && $_->summary->accessible) {
+            $found_datastore = 1;
+            $name = $_->summary->name;
+            $mor = $_->{mo_ref};
+         } else {
+            # the free space available is less than the specified disksize
+            return (mor => 0, name => 'disksize_error');
+         }
+      }
+   }
+   
+   # No datastore found
+   if (!$found_datastore) {
+      my $host_name = $host_view->name;
+      my $ds_name;
+      if ($args{datastore}) {
+         $ds_name = $args{datastore};
+      }
+      return (mor => 0, name => 'datastore_error');
+   }
+   return (name => $name, mor => $mor);
+}
+
+
+# check the XML file
+# =====================
+sub validate {
+   my $valid = validate_format();
+   if ($valid == 1) {
+      $valid = validate_schema();
+      
+      if ($valid == 1) {
+         $valid = check_missing_value();
+         
+         if ($valid == 1) {
+            $valid = check_duplicacy();
+         }
+      }
+   }
+
+   return $valid;
+}
+
+# check if the XML is well formed or not
+# ======================================
+sub validate_format {
+   my $valid = 1;
+
+   my $filename = Opts::get_option('filename');
+   if ((length($filename) == 0) || !(-e $filename && -r $filename && -T $filename)) {
+      Util::trace(1, "\n'$filename' doesnt exist or is not readable:\n$@\n");
+      $valid = 0;
+   } else {
+      my $parser = XML::Parser->new( ErrorContext => 2 );
+      eval {
+         $parser->parsefile( $filename );
+      };
+      if( $@ ) {
+         Util::trace(1, "\nERROR in '$filename':\n$@\n");
+         $valid = 0;
+      }
+   }
+
+   return $valid;
+}
+
+
+# validate XML against the schema
+# =================================
+sub validate_schema {
+   my $valid = 1;
+
+   my $filename = Opts::get_option('filename');
+   my $schema_filename = Opts::get_option('schema');
+
+   if ((length($schema_filename) == 0) || 
+       !(-e $schema_filename && -r $schema_filename && -T $schema_filename)) {
+      Util::trace(1, "\n'$schema_filename' doesnt exist or is not readable:\n$@\n");
+      $valid = 0;
+   } else {
+      my $xmlschema = XML::LibXML::Schema-> new( location => $schema_filename );
+      my $parser=XML::LibXML-> new;
+      my $doc=$parser-> parse_file( $filename );
+      eval {
+         $xmlschema-> validate( $doc );
+      };
+      if ($@) {
+         Util::trace(1, "\nError in '$filename':\n" . $@);
+         $valid = 0;
+      }
+   }
+
+   return $valid;
+}
+
+
+# check missing values of mandatory fields
+# ========================================
+sub check_missing_value {
+   my $filename = Opts::get_option('filename');
+   my $parser = XML::LibXML->new();
+   my $tree = $parser->parse_file($filename);
+   my $root = $tree->getDocumentElement;
+   my @vms = $root->findnodes('VM');
+
+   foreach (@vms) {
+      if (!$_->findvalue('vmname')) {
+         Util::trace(1, "\nERROR in '$filename':\nvmname value missing " .
+                     "in one of the VM specifications\n");
+         return 0;
+      }
+      if (!$_->findvalue('vmhost')) {
+         Util::trace(1, "\nERROR in '$filename':\nvmhost value missing " .
+                     "in one of the VM specifications\n");
+         return 0;
+      }
+      if (!$_->findvalue('datacenter')) {
+         Util::trace(1, "\nERROR in '$filename':\ndatacenter value missing " .
+                     "in one of the VM specifications\n");
+         return 0;
+      }
+   }
+
+   return 1;
+}
+
+
+# check for duplicate virtual machine names
+# =========================================
+sub check_duplicacy {
+   my $filename = Opts::get_option('filename');
+   my (@common_name, @array2, %hash, $total_vms_unique);
+   my $parser = XML::LibXML->new();
+   my $tree = $parser->parse_file($filename);
+   my $root = $tree->getDocumentElement;
+   my @vms = $root->findnodes('VM');
+   my $total_vms = @vms;
+
+   foreach (@vms) {
+      @common_name = (@common_name, $_->findvalue('vmname'));
+   }
+   foreach (@common_name) {$hash{$_}++};
+   foreach (sort keys %hash) {push @array2, $_};
+   $total_vms_unique = @array2;
+   if ($total_vms > $total_vms_unique) {
+      Util::trace(1, "\nERROR in '$filename':\n" .
+                  "Duplicate VM names found in the XML file\n");
+      return 0;
+   }
+
+   return 1;
+}
+
+
+__END__
+
+=head1 NAME
+
+vmcreate.pl - Create virtual machines.
+
+=head1 SYNOPSIS
+
+ vmcreate.pl --url <web service URL> --username <server login name>
+            --password <server login password> [--filename <input XML file location>]
+            [--schema <schema file location>]
+
+=head1 DESCRIPTION
+
+This VI Perl command-line utility provides an interface for creating one
+or more new virtual machines based on the parameters specified in the
+input XML file.
+
+=head1 OPTIONS
+
+=head2 GENERAL OPTIONS
+
+=over
+
+=item B<filename>
+
+Optional. The location of the XML file which contains the specifications of the virtual
+machines to be created. If this option is not specified, then the default
+file 'create_vm.xml' will be used from the current dirctory. The user can use
+this file as a referance to create there own input XML files and specify the file's
+location using <filename> option.
+
+=item B<schema>
+
+Optional. The location of the schema file against which the input XML file is
+validated. If this option is not specified, then the file 'schema.xsd' will be used from
+the current dirctory. This file need not be modified by the user.
+
+=back
+
+
+=head2 INPUT PARAMETERS
+
+The parameters for creating the virtual machine are specified in an XML
+file. The structure of the input XML file is:
+
+   <virtual-machines>
+      <VM>
+         <!--Several parameters like machine name, guest OS, memory etc-->
+      </VM>
+      .
+      .
+      .
+      <VM>
+      </VM>
+   </virtual-machines>
+
+Following are the input parameters:
+
+=over
+
+=item B<vmname>
+
+Required. Name of the virtual machine to be created.
+
+=item B<vmhost>
+
+Required. Name of the host.
+
+=item B<datacenter>
+
+Required. Name of the datacenter.
+
+=item B<guestid>
+
+Optional. Guest operating system identifier. Default: 'winXPProGuest'.
+
+=item B<datastore>
+
+Optional. Name of the datastore. Default: Any accessible datastore with free
+space greater than the disksize specified.
+
+=item B<disksize>
+
+Optional. Capacity of the virtual disk (in KB). Default: 4096
+
+=item B<memory>
+
+Optional. Size of virtual machine's memory (in MB). Default: 256
+
+=item B<num_cpus>
+
+Optional. Number of virtual processors in a virtual machine. Default: 1
+
+=item B<nic_network>
+
+Optional. Network name. Default: Any accessible network.
+
+=item B<nic_poweron>
+
+Optional. Flag to specify whether or not to connect the device
+when the virtual machine starts. Default: 1
+
+=back
+
+=head1 EXAMPLE
+
+Create five new virtual machines with the following configuration :
+
+ Machine 1:
+      Name             : Virtual_1
+      Host             : 192.168.111.2
+      Datacenter       : Dracula
+      Guest Os         : Windows Server 2003, Enterprise Edition
+      Datastore        : storage1
+      Disk size        : 4096 KB
+      Memory           : 256 MB
+      Number of CPUs   : 1
+      Network          : VM Network
+      nic_poweron flag : 0
+
+ Machine 2:
+      Name             : Virtual_2
+      Host             : <Any Invalid Name, say Host123>
+      Datacenter       : Dracula
+      Guest Os         : Red Hat Enterprise Linux 4
+      Datastore        : storage1
+      Disk size        : 4096 KB
+      Memory           : 256 MB
+      Number of CPUs   : 1
+      Network          : VM Network
+      nic_poweron flag : 0
+
+ Machine 3:
+      Name             : Virtual_3
+      Host             : 192.168.111.2
+      Datacenter       : Dracula
+      Guest Os         : Windows XP Professional
+      Datastore        : <Invalid datastore name, say DataABC>
+      Disk size        : 4096 KB
+      Memory           : 256 MB
+      Number of CPUs   : 1
+      Network          : VM Network
+      nic_poweron flag : 0
+
+ Machine 4:
+      Name             : Virtual_4
+      Host             : 192.168.111.2
+      Datacenter       : Dracula
+      Guest Os         : Solaris 9
+      Datastore        : storage1
+      Disk size        : <No disk size; default value will be used>
+      Memory           : 128 MB
+      Number of CPUs   : 1
+      Network          : VM Network
+      nic_poweron flag : 0
+
+ Machine 5:
+      Name             : Virtual_5
+      Host             : 192.168.111.2
+      Datacenter       : Dracula
+      Guest Os         : <No guest OS, default will be used>
+      Datastore        : storage1
+      Disk size        : 2048 KB
+      Memory           : 128 MB
+      Number of CPUs   : 1
+      Network          : <No network name, default will be used>
+      nic_poweron flag : 1
+
+
+As per the above specifications for five VMs, the input XML file should be as follows:
+
+ <?xml version="1.0"?>
+ <virtual-machines>
+   <VM>
+      <vmname>Virtual_1</vmname>
+      <vmhost>192.168.111.2</vmhost>
+      <datacenter>Dracula</datacenter>
+      <guestid>winNetEnterpriseGuest</guestid>
+      <datastore>storage1</datastore>
+      <disksize>4096</disksize>
+      <memory>256</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network>VM Network</nic_network>
+      <nic_poweron>0</nic_poweron>
+   </VM>
+   <VM>
+      <vmname>Virtual_2</vmname>
+      <vmhost>Host123</vmhost>
+      <datacenter>Dracula</datacenter>
+      <guestid>rhel4Guest</guestid>
+      <datastore>storage1</datastore>
+      <disksize>4096</disksize>
+      <memory>256</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network>VM Network</nic_network>
+      <nic_poweron>0</nic_poweron>
+   </VM>
+   <VM>
+      <vmname>Virtual_3</vmname>
+      <vmhost>192.168.111.2</vmhost>
+      <datacenter>Dracula</datacenter>
+      <guestid>winXPProGuest</guestid>
+      <datastore>DataABC</datastore>
+      <disksize>4096</disksize>
+      <memory>256</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network>VM Network</nic_network>
+      <nic_poweron>0</nic_poweron>
+   </VM>
+   <VM>
+      <vmname>Virtual_4</vmname>
+      <vmhost>192.168.111.2</vmhost>
+      <datacenter>Dracula</datacenter>
+      <guestid>solaris9Guest</guestid>
+      <datastore>storage1</datastore>
+      <disksize></disksize>
+      <memory>128</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network>VM Network</nic_network>
+      <nic_poweron>0</nic_poweron>
+   </VM>
+   <VM>
+      <vmname>Virtual_5</vmname>
+      <vmhost>192.168.111.2</vmhost>
+      <datacenter>Dracula</datacenter>
+      <guestid></guestid>
+      <datastore>storage1</datastore>
+      <disksize>2048</disksize>
+      <memory>128</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network></nic_network>
+      <nic_poweron>1</nic_poweron>
+   </VM>
+ </virtual-machines>
+
+
+The command to run the vmcreate script is:
+
+    vmcreate.pl --url https://192.168.111.52:443/sdk/webService
+              --username administrator --password mypassword
+              --filename create_vm.xml --schema schema.xsd
+
+The script will continue to create the next virtual machines even if
+some previous machine creation process is failed.
+
+The output of the above script is:
+
+ --------------------------------------------------------------
+ Successfully created virtual machine: 'Virtual_1'
+
+ Error creating VM 'Virtual_2': Host 'Host123' not found
+
+ Error creating VM 'Virtual_3': Datastore DataABC not available.
+
+ Successfully created virtual machine: 'Virtual_4'
+
+ Successfully created virtual machine: 'Virtual_5'
+ --------------------------------------------------------------
+
+=head1 SUPPORTED PLATFORMS
+
+Create operation work with VMware VirtualCenter 2.0 or later.
+

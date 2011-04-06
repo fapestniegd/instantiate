@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+BEGIN { unshift @INC, './lib' if -d './lib'; } 
+use Linode::API;
+my $la = Linode::API->new({
+                            'username' => $ENV{'LINODE_USERNAME'},
+                            'password' => $ENV{'LINODE_PASSWORD'}
+                          }); 
+#my $data = $la->pv_grub("loki") ."\n";

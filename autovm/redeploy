@@ -1,0 +1,27 @@
+#!/bin/bash
+PATH="/usr/local/bin:/usr/bin:/bin:/home/james/devel/perl/autovm"
+VM=$1
+if [ -z ${VM} ];then exit;fi
+if [ ! -f ${VM}.xml ];then exit;fi
+powervm.pl --name ${VM}.int.asurion.com --powerstate off 
+echo "Destroying ${VM}.int.asurion.com"
+destroyvm.pl --name ${VM}.int.asurion.com
+created=255
+sleepy=10
+while [ $created -ne 0 ]; do
+    vmcreate.pl --schema vmcreate.xsd --filename ${VM}.xml 
+    created=$?
+    sleepy=`expr ${sleepy} + 10`
+    if [ $created -ne 0 ]; then sleep ${sleepy};fi
+done
+
+powervm.pl --name ${VM}.int.asurion.com --powerstate on
+echo -n "Powering up"
+while [ $(ping -c1 -i1 ${VM}.int.asurion.com>/dev/null&&echo '#'||echo '_') == "_" ];do echo -n '.';sleep 1;done
+echo; echo -n "Installing"
+while [ $(ping -c1 -i1 ${VM}.int.asurion.com>/dev/null&&echo '#'||echo '_') == "#" ];do echo -n '.';sleep 1;done
+echo; echo -n "Rebooting"
+while [ $(ping -c1 -i1 ${VM}.int.asurion.com>/dev/null&&echo '#'||echo '_') == "_" ];do echo -n '.';sleep 1;done
+echo;echo "Reconfiguring..."
+reconfigurevm.pl --name ${VM}.int.asurion.com 
+echo "Done."

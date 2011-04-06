@@ -1,0 +1,117 @@
+#!/usr/bin/perl -wT
+################################################################################  
+# You will need to set the following environment variables
+# LINODE_USERNAME
+# LINODE_PASSWORD
+# GITHUB_USERNAME
+# GITHUB_PASSWORD
+# LDAP_BINDDN
+# LDAP_PASSWD
+# AWS_ACCESS_KEY_ID
+# AWS_SECRET_ACCESS_KEY
+################################################################################  
+BEGIN { unshift @INC, './lib' if -d './lib'; }
+use Data::Dumper;
+use EC2::Deploy;
+use GitHub::Mechanize;
+use Linode::API;
+use WebSages::Configure;
+
+$ENV{'PATH'}="/usr/local/bin:/usr/bin:/bin";
+$ENV{IFS}=' \t\n';
+my $localhome; if($ENV{'HOME'}=~m/(.*)/){ $localhome=$1; }
+
+my $hostname='loki';
+my $fqdn=$hostname.".websages.com";
+
+my $la = Linode::API->new({
+                            'username' => $ENV{'LINODE_USERNAME'},   
+                            'password' => $ENV{'LINODE_PASSWORD'},   
+                          });
+exit unless(defined  $la);
+
+#print Data::Dumper->Dump([$la->linode_list]);
+
+# 1) cut a hole in the box
+    ############################################################################  
+    # Removal
+    ############################################################################  
+    $la->shutdown($hostname) if($la->is_running($hostname));
+    $la->delete_configs($hostname);
+    $la->delete_all_disks($hostname);
+
+# 2) put your junk in the box
+    ############################################################################  
+    # Deployment
+    ############################################################################  
+    $la->ssh_pubkey("$localhome/.ssh/id_dsa.pub");
+    $la->deploy_linode($hostname);
+    print "This linode's Root Password was [ ".$la->get_root_passwd().
+          " ] (without the brackets)\n";
+    print Data::Dumper->Dump([$la->{'ERROR'}]) if $la->{'ERROR'};
+
+    ############################################################################  
+    # Initialization
+    ############################################################################  
+    if(-f "$localhome/.ssh/known_hosts"){
+        print "Moving your $localhome/.ssh out of the way...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts $localhome/.ssh/known_hosts.predeploy-linode");
+    }
+
+    # wait for ssh to become available and get it's ssh-key so it won't ask
+    system qq(ssh-keyscan $fqdn > $localhome/.ssh/known_hosts);
+    while( -z "$localhome/.ssh/known_hosts" ){
+        print "ssh isn't up yet, sleeping 5...\n";
+        sleep 5;
+        system qq(ssh-keyscan $fqdn > $localhome/.ssh/known_hosts);
+    }
+    
+    # mount the opt disk
+    system qq(ssh root\@$fqdn "/bin/grep /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
+    system qq(ssh root\@$fqdn "/bin/grep ' /opt ' /etc/mtab || /bin/mount -a");
+ 
+    # fire off wcyd
+    system qq(ssh root\@$fqdn "/usr/bin/wget -qO /root/wcyd http://wcyd.org/wcyd");
+    system qq(ssh root\@$fqdn "/bin/chmod 755 /root/wcyd");
+    system qq(ssh root\@$fqdn "/usr/bin/nohup /root/wcyd $fqdn > /var/log/wcyd-init.log 2>\&1 \&");
+
+    ############################################################################  
+    # SimpleSecurityObject 
+    ############################################################################  
+    
+
+    ############################################################################  
+    # GitHub deployment key
+    ############################################################################  
+    print "Adding ssh public key as a deploy key to our private repository\n";
+ 
+    # regenerate a dsa public key (if there isn't one?)
+    system(qq(ssh -o StrictHostKeyChecking=no root\@$fqdn 'if [ ! -f /root/.ssh/id_dsa.pub ];then /usr/bin/ssh-keygen -t dsa -N "" -f /root/.ssh/id_dsa > /dev/null 2>\&1;fi'));
+    my ($ssh_key, $newkey);
+    open PUBKEY, qq(ssh root\@$fqdn 'if [ -f /root/.ssh/id_dsa.pub ]; then /bin/cat /root/.ssh/id_dsa.pub ;fi'|)||warn "could not open ssh for read";
+    while(chomp($ssh_key=<PUBKEY>)){
+        if($ssh_key=~m/^ssh-dss/){ $newkey=$ssh_key; }
+    }
+    close(PUBKEY);
+    print STDERR ".oO(".$newkey.")Oo.\n";
+
+    # put the ssh key as a deployment key in teh GitHubs
+    my $gh = GitHub::Mechanize->new({
+                                      'repo' => "websages",
+                                      'live' => 1,
+                                      'writecache' => 1,
+                                      'cache' => './cache',
+                                      'debug' => 1
+                                    });
+    if($gh){
+             $gh->replace_deploy_key({
+                                       'name' => "$hostname-root",
+                                       'key' => $newkey
+                                     });
+    }
+
+    # move the known_hosts file back
+    if(-f "$localhome/.ssh/known_hosts.predeploy-linode"){
+        print "Moving your $localhome/.ssh back...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts.predeploy-linode $localhome/.ssh/known_hosts");
+    }

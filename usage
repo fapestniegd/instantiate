@@ -1,0 +1,10 @@
+instance -l
+
+instance -n loki -s
+instance -n loki -a
+instance -n loki -r "Debian 5.0"
+instance -n loki -b
+instance -n loki -c -f loki.otherdomain.net  # Requires $ENV{'INSTANCE_PASSWD'}
+instance -n loki -k                          # Requires $ENV{'INSTANCE_PASSWD'}
+
+instance -n loki -abckr "Debian 5.0" -f loki.example.org

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<virtual-machines>
+   <VM>
+      <vmname>coal.int.asurion.com</vmname>
+      <vmhost>nrtesx010.int.asurion.com</vmhost>
+      <datacenter>NRT</datacenter>
+      <guestid>rhel3Guest</guestid>
+      <datastore>cu515</datastore>
+      <disksize>10485760</disksize>
+      <memory>512</memory>
+      <num_cpus>1</num_cpus>
+      <nic_network>VLAN_30</nic_network>
+      <nic_poweron>1</nic_poweron>
+      <iso_file>[cu515]/tools-isoimages/coal-boot.iso</iso_file>
+   </VM>
+</virtual-machines>

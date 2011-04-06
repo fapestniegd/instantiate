@@ -1,0 +1,332 @@
+#!/usr/bin/perl -w
+$ENV{'PATH'}="/usr/local/bin:/usr/bin:/bin";
+my $localhome; if($ENV{'HOME'}=~m/(.*)/){  $localhome=$1; }
+BEGIN { unshift @INC, './lib' if -d './lib'; }
+use strict;
+use Getopt::Long;
+    Getopt::Long::Configure ("Bundling");
+use Linode::Mechanize;
+use GitHub::Mechanize;
+use Net::SSH::Expect;
+use FileHandle;
+use Data::Dumper;
+#    $Data::Dumper::Indent=0;
+
+########################################################################
+# Linode::Mechanize Prerequisites:
+#
+# shell variables:
+# export LINODE_USERID='<your-linode-username>'
+# export LINODE_PASSWD='<your-linode-password>'
+#
+#  _OR_
+#
+#  ~/.linode_credentials
+# +------------------------
+# |userid: <your-linode-username>
+# |passwd: <your-linode-password>
+#
+########################################################################
+sub pad{
+    my $len=shift||0;
+    my $str = '';
+    for(my $i=0;$i<$len;$i++){ $str.=' '; }
+    return $str;
+}
+
+sub usage{
+    my $exit=shift||0;
+    print "Usage: $0 {-n|name} <name> {-f|--fqdn} <f.q.d.n> [-a|--anhiliate]   \\\n";
+    print "          {-h|-help}\n";
+    print pad(length("Usage: $0 -n <linode_name>")+1)."[{-r|--redeploy} <distro>] [-b|--boot]   \\\n";
+    print pad(length("Usage: $0 -n <linode_name>")+1)."[-c|--configure] [-k|--key]              \\\n";
+    print pad(length("Usage: $0 -n <linode_name>")+1)."[-d|--debug] [-l|--live]                 \\\n";
+    print pad(length("Usage: $0 -n <linode_name>")+1)."[{-C|--cachedir} <directory>]\n";
+    print "Options:\n"; 
+    print "    -a|--anhiliate\n        Power Down the vm and completely destroy it.\n           (This *will* erase your data, I promise.)\n"; 
+    print "    -r|--redeploy <distro>\n         Redeploy the distribution specified.\n";
+    print "    -b|--boot\n        Boot the vm\n";
+    print "    -c|--configure\n        Install custom configuration scripts (from GitHub) and run them.\n";
+    print "    -k|--key\n        Copy localhost:~/.ssh/id_dsa.pub <linode>:/root/.ssh/authorized_keys.\n";
+    print "    -d|--debug\n        Generate verbose debugging output\n";
+    print "    -l|--live\n        Actually do the work instead of simulating it from the cached pages.\n";
+    print "    -C|--cachedir <dir>\n        Save downloaded pages to <dir> parse offline.\n";
+    print "\nExample:\n";
+    print "    $0 -n loki -f loki.example.org -abclkr 'Debian 5.0'\n";
+    print "\nThis will: Erase the linode known as 'loki'\n";
+    print pad(length("This will: "))."Redeploy Debain 5.0 on the linode\n";
+    print pad(length("This will: "))."Boot the linode\n";
+    print pad(length("This will: "))."Configure it as 'loki.example.org' (the cfg scripts need a fqdn)\n";
+    print pad(length("This will: "))."Key root's authorized keys with your public dsa key\n";
+    print pad(length("This will: "))."Do it live.\n\n";
+    exit $exit;
+}
+
+
+########################################################################
+# Use Linode::Mechanize to do various tasks with linode's web interface
+# This particular example will remove a host and re-deploy it. 
+# (
+# Provided it already follows our deployment convention of:
+#     Configuration Profile Name: <linode_name>
+#     Root Disk Name: <linode_name>-root [4096]
+#     Swap Disk Name: <linode_name>-swap [512]
+#     Optional Disk Name: <linode_name>-opt [the rest of the space]
+# )
+# /*FIXME these should be options*/
+########################################################################
+
+my ($result, $root_pw, $opt);
+$result=GetOptions( 
+                    "h|help"         => \$opt->{'h'},
+                    "n|name=s"       => \$opt->{'n'},
+                    "f|fqdn=s"       => \$opt->{'f'},
+                    "a|anhiliate"    => \$opt->{'a'},
+                    "r|redeploy:s"   => \$opt->{'r'},
+                    "b|boot"         => \$opt->{'b'},
+                    "c|configure"    => \$opt->{'c'},
+                    "k|key"          => \$opt->{'k'},
+                    "d|debug"        => \$opt->{'d'},
+                    "l|live"         => \$opt->{'l'},
+                    "C|cachedir:s"   => \$opt->{'C'}
+                  );
+
+if($opt->{'h'}){ usage(); }
+
+# if they don't specify one it should list them /*FIXME*/
+if(!defined($opt->{'n'})){ 
+    print "ERROR: You need to specify a linode name.\n"; 
+    usage(); 
+}
+
+# could we possibly take the default of linodename.localhost's_fqdn?
+if(!defined($opt->{'f'})){ 
+    print "ERROR: You need to specify a fully-qualified domain name.\n"; 
+    usage(); 
+}
+
+my $hostname   = $opt->{'n'}||"loki";
+my $fqdn       = $opt->{'f'}||"loki.eftdomain.net";
+my $anhiliate  = $opt->{'a'}||0;
+my $deploy     = $opt->{'r'}||0;
+my $boot       = $opt->{'b'}||0;
+my $configure  = $opt->{'c'}||0;
+my $rekey      = $opt->{'k'}||0;
+my $dumpyaml   = $opt->{'d'}||0;
+my $live       = $opt->{'l'}||0;
+my $writecache = 0;
+my $cachedir   = $opt->{'C'}||"/dev/shm";
+if($opt->{'C'}){ $writecache = 1; }
+print "Options: ".Data::Dumper->Dump([$opt]) if $opt->{'d'};
+
+my $linode=Linode::Mechanize->new({
+                                    'live'       => "$live", 
+                                    'writecache' => "$writecache",
+                                    'cache'      => "$cachedir",
+                                    'debug'      => $opt->{'d'}
+                                  });
+#########################################################################
+# loads "members/linode"
+# Loads the specified host's dashboard page.
+#########################################################################
+print "Getting machine list.\n";
+$linode->load_machines(); 
+#print Data::Dumper->Dump([$linode->{'machines'}]);
+
+print "Loading dashboard for $hostname\n";
+$linode->load_dashboard($hostname);
+
+#########################################################################
+# Sends a shutdown request to host identified as $hostname
+# Removes the configuration profile for $hostname from host $hostname
+# Removes the disk images '$hostname-{root,swap,opt}' from host $hostname
+#########################################################################
+if($anhiliate){
+    print "Shutting down $hostname\n";
+    $linode->shutdown_host($hostname);
+
+    print "Removing config Image $hostname\n";
+    $linode->delete_config($hostname,$hostname);
+
+    print "Removing disk Image $hostname-root\n";
+    $linode->delete_disk($hostname,"$hostname-root");
+
+    print "Removing disk Image $hostname-swap\n";
+    $linode->delete_disk($hostname,"$hostname-swap");
+
+    print "Removing disk Image $hostname-opt\n";
+    $linode->delete_disk($hostname,"$hostname-opt");
+}
+
+#########################################################################
+# Creates a 4096(root)/512(swap) Debian 5.0 profile
+# Creates a opt filesystem from remaning space
+# renames disk images to conform with convention
+# Renames Configuration Profile to with convention
+# Attaches opt to the profile
+#########################################################################
+
+if($deploy){
+    print "Creating Base Debian 5.0 Config Image\n";
+    $linode->deploy_host($hostname,$hostname);
+
+    print "Creating Disk Image $hostname-opt\n";
+    $linode->create_disk($hostname,"$hostname-opt");
+
+    print "Relabeling Debian5.0DiskImage $hostname-root\n";
+    $linode->relabel_disk($hostname,'Debian5.0DiskImage',"$hostname-root");
+
+    print "Relabeling 512MBSwapImage $hostname-swap\n";
+    $linode->relabel_disk($hostname,'512MBSwapImage',"$hostname-swap");
+
+    print "Relabeling MyDebian5.0Profile $hostname\n";
+    $linode->relabel_config($hostname,'MyDebian5.0Profile',$hostname);
+}
+
+#########################################################################
+# Boots the profile
+#########################################################################
+if($boot){
+    print "Starting up $hostname\n";
+    $linode->startup_host_config($hostname,$hostname);
+}
+
+#########################################################################
+# Sets basic parameters installs LDAP-aware cfengine and configures the
+# host based on the classes its LDAP record have defined.
+#########################################################################
+my $root_password=$linode->get_root_passwd();
+
+#########################################################################
+# Waits for job to return success
+# ssh -t root@<ip-of-host> and executes:  
+#     wget -O wcyd http://wcyd.org/wcyd;chmod 755 wcyd;./wcyd $hostname.websages.com
+#     The rest of the work is carried out from cfengine.
+#########################################################################
+if($configure){
+    my $line;
+    my $ssh;
+    my $count=1;
+    my $count_max=10;
+    my $success=0;
+    if(-f "$localhome/.ssh/known_hosts"){  
+        print "Moving your $localhome/.ssh out of the way...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts $localhome/.ssh/known_hosts.predeploy-linode");
+    }
+    my $pubkey;
+    if(-f "$localhome/.ssh/id_dsa.pub"){  
+        print "adding your public key to root\@$fqdn.\n";
+        my $fh = new FileHandle;
+        if ($fh->open("< $localhome/.ssh/id_dsa.pub")) {
+           $pubkey=<$fh>;
+           $pubkey=~m/(.*)/;
+           $pubkey=$1;
+           $fh->close;
+        }
+    }else{
+        print "Please create an $localhome/.ssh/id_dsa.pub\n";
+        exit 1;
+    }
+    # we keep trying this because it takes a while for ssh to spin up...
+    print "This linode's Root Password was [ $root_password ] (without the brackets)\n";
+    print "(if cfengine didn't change it)\n";
+    while(($success==0) && ($count<=$count_max)){
+        eval { 
+               $ENV{'PATH'}="/usr/local/bin:/usr/bin:/bin";
+               #my $localhome; if($ENV{'HOME'}=~m/(.*)/){  $localhome=$1; }
+               local $SIG{'__DIE__'}; 
+               $ssh = Net::SSH::Expect->new (
+                                              host       => $fqdn,
+                                              user       => 'root',
+                                              timeout    => 10,
+                                              password   => $root_password,
+                                              ssh_option => '-o StrictHostKeyChecking=no',
+                                              raw_pty    => 1
+                                            );
+               print "Reconfigure Attempt ( $count/$count_max )\n";
+               my $login_output = $ssh->login();
+               if ($login_output !~ /.*li[0-9]+-[0-9]+:.*# /) {
+                   print STDERR "Login has failed. Login output was \n\n[$login_output]\n\n";
+               }else{
+                   $success=1;
+               }
+               if($success){
+                   $ssh->exec("if [ ! -d /root/.ssh ];then umask 077; /bin/mkdir /root/.ssh;fi");
+                   #while ( defined ($line = $ssh->read_line()) ) { print $line . "\n"; }
+                   $ssh->exec("/bin/echo '$pubkey' > /root/.ssh/authorized_keys");
+                   #while ( defined ($line = $ssh->read_line()) ) { print $line . "\n"; }
+               }
+               $ssh->close();
+        };
+        if($@){ warn $@; $success=0; }
+        $count++;
+        sleep 15;
+    }
+    unless($success){exit 1;}
+
+    # Now that we have a public key we can send ssh commands
+
+    # mount the opt disk
+    system qq(ssh root\@$fqdn "/bin/grep /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
+    system qq(ssh root\@$fqdn "/bin/grep ' /opt ' /etc/mtab || /bin/mount -a");
+
+    # fire off wcyd
+    system qq(ssh root\@$fqdn "/usr/bin/wget -qO /root/wcyd http://wcyd.org/wcyd");
+    system qq(ssh root\@$fqdn "/bin/chmod 755 /root/wcyd");
+    system qq(ssh root\@$fqdn "/usr/bin/nohup /root/wcyd $fqdn > /var/log/wcyd-init.log 2>\&1 \&");
+
+    $ssh->exec("/usr/bin/nohup /root/wcyd $fqdn > /var/log/wcyd-init.log 2>\&1 \&");
+    if(-f "$localhome/.ssh/known_hosts.predeploy-linode"){  
+        print "Moving your $localhome/.ssh back...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts.predeploy-linode $localhome/.ssh/known_hosts");
+    }
+}else{
+    print "\n";
+    print "This linode's Root Password is [ $root_password ] (without the brackets)\n";
+    print "**** WRITE THIS DOWN **** (it's not recorded anywhere else...)\n";
+    print "\n";
+}
+
+#########################################################################
+# Creates a /root/.ssh/{id_dsa,id_dsa.pub} and  and pushes the pubkey
+# into a deployment key named $hostname-root on github
+#########################################################################
+if($rekey){
+    if(-f "$localhome/.ssh/known_hosts"){  
+        print "Moving your $localhome/.ssh out of the way...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts $localhome/.ssh/known_hosts.predeploy-linode");
+    }
+    print "Adding ssh public key as a deploy key to our private repository\n";
+
+    system(qq(ssh -o StrictHostKeyChecking=no root\@$fqdn 'if [ ! -f /root/.ssh/id_dsa.pub ];then /usr/bin/ssh-keygen -t dsa -N "" -f /root/.ssh/id_dsa > /dev/null 2>\&1;fi'));
+    my ($ssh_key, $newkey);
+    open PUBKEY, qq(ssh root\@$fqdn 'if [ -f /root/.ssh/id_dsa.pub ]; then /bin/cat /root/.ssh/id_dsa.pub ;fi'|)||warn "could not open ssh for read";
+    while(chomp($ssh_key=<PUBKEY>)){
+        if($ssh_key=~m/^ssh-dss/){ $newkey=$ssh_key; }
+    }
+    close(PUBKEY);
+    if(-f "$localhome/.ssh/known_hosts.predeploy-linode"){  
+        print "Moving your $localhome/.ssh back...\n";
+        system ("/bin/mv $localhome/.ssh/known_hosts.predeploy-linode $localhome/.ssh/known_hosts");
+    }
+    print STDERR ".oO(".$newkey.")Oo.\n";
+    my $gh = GitHub::Mechanize->new({ 
+                                      'repo' => "websages",
+                                      'live' => 1,
+                                      'writecache' => 1,
+                                      'cache' => './cache',
+                                      'debug' => 1
+                                    });
+    if($gh){
+             $gh->replace_deploy_key({ 
+                                       'name' => "$hostname-root",
+                                       'key' => $newkey
+                                     });
+    }
+}
+
+if($dumpyaml){
+    print YAML::Dump($linode->{'machines'});
+}
+exit 0;
+

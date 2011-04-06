@@ -1,0 +1,334 @@
+#!/usr/bin/perl -T
+################################################################################  
+#
+# CentOS 5.5
+# Debian 5.0
+# Debian 6
+#
+################################################################################  
+BEGIN { unshift @INC, './lib' if -d './lib'; }
+$ENV{'IFS'}  = ' \t\n';
+$ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
+$ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
+
+use Data::Dumper;
+use EC2::Actions;
+use LinodeAPI::Actions;
+use WebSages::Configure;
+use Getopt::Long; 
+    Getopt::Long::Configure ("Bundling");
+
+################################################################################  
+# just a lazy format hack.
+################################################################################  
+sub pad{
+    my $len=shift||0;
+    my $str = '';
+    for(my $i=0;$i<$len;$i++){ $str.=' '; }
+    return $str;
+}
+################################################################################  
+# Some documentation on how to use the script
+################################################################################  
+sub usage{
+    my $type=shift||'short';
+    my $exit=shift||0;
+    my $required="       $0 {-n|-name} <common_name>";
+    print "Usage: $0 {-h|-help}\n";
+    print "Usage: $0 {-l|-list}\n";
+    print $required." ".           "[{-f|--fqdn} <f.q.d.n>]          \\\n";
+    print pad(length($required)+1)."[{-a|--anhiliate}]               \\\n";
+    print pad(length($required)+1)."[{-b|--boot}]                    \\\n";
+    print pad(length($required)+1)."[{-r|--redeploy} <distro>]       \\\n";
+    print pad(length($required)+1)."[{-c|--configure}]               \\\n";
+    print pad(length($required)+1)."[{-k|--key}]                     \\\n";
+    print pad(length($required)+1)."[{-t|--type}]                    \\\n";
+    print pad(length($required)+1)."[{-d|--debug}]                   \\\n";
+    print pad(length($required)+1)."[\"Distribution\"]                 \\\n";
+    if(($type eq "medium")||($type eq 'long')){
+        print "Options:\n";
+        print "    -s|--stop\n        Stop the vm\n";
+        print "    -a|--anhiliate\n".
+              "         Power Down the vm and completely destroy it.\n".
+              "          (This *will* erase your data, and it won't prompt. I promise. Srsly.)\n";
+        print "    -r|--redeploy <distro>\n".
+              "         Redeploy the distribution specified.\n";
+        print "    -b|--boot\n".
+              "         Boot the vm\n";
+        print "    -c|--configure\n".
+              "         Install custom configuration scripts (from GitHub) and run them.\n";
+        print "    -k|--key\n".
+              "         Copy localhost:~/.ssh/id_dsa.pub <instance>:/root/.ssh/authorized_keys.\n";
+        print "    -t|--type\n".
+              "         Type of instance. Currently only {linode|ec2} (ec2 is m1.small)}.\n";
+        print "    -d|--debug\n".
+              "         Generate verbose debugging output\n";
+        print "\n";
+        if($type eq 'long'){
+            print "\nExample:\n";
+            print "    $0 -n loki -f loki.example.org -t linode -abckr 'Debian 5.0'\n";
+            print "\nThis will: Erase the linode instance known as 'loki'\n";
+            print pad(length("This will: "))."Redeploy Debain 5.0 on the linode\n";
+            print pad(length("This will: "))."Boot the linode\n";
+            print pad(length("This will: "))."Configure it as 'loki.example.org' (the cfg scripts need a fqdn)\n";
+            print pad(length("This will: "))."Key root's authorized keys with your public dsa key\n";
+        }
+    }
+    exit $exit;
+}
+################################################################################  
+# Option Calculatons...
+################################################################################  
+my ($result, $root_pw, $opt);
+$result=GetOptions(
+                    "h|help"         => \$opt->{'h'},
+                    "n|name=s"       => \$opt->{'n'},
+                    "f|fqdn=s"       => \$opt->{'f'},
+                    "a|anhiliate"    => \$opt->{'a'},
+                    "r|redeploy:s"   => \$opt->{'r'},
+                    "b|boot"         => \$opt->{'b'},
+                    "c|configure"    => \$opt->{'c'},
+                    "k|key"          => \$opt->{'k'},
+                    "d|debug"        => \$opt->{'d'},
+                    "l|list"         => \$opt->{'l'},
+                    "t|type:s"       => \$opt->{'t'},
+                  );
+
+if($opt->{'h'}){ 
+    if($opt->{'d'}){
+        usage('long',0);
+    }else{
+        usage('medium',0);
+    }
+}
+$opt->{'r'}="Debian 5.0" unless defined($opt->{'r'});
+
+my $debug=0;
+if($opt->{'d'}){ $debug=1; }
+################################################################################
+# reasonable defaults?
+################################################################################
+if($opt->{'l'}){
+    print "Yeah, I'm still working on -l/--list.\n";
+    exit;
+}
+# if they don't specify one it should list them /*FIXME*/
+if(!defined($opt->{'n'})){
+    print STDERR "ERROR: You need to specify an instance common_name.\n";
+    usage('short',-1);
+}
+
+if(!defined($opt->{'f'})){
+    print STDERR "No fully-qualified domain name provided.\n".
+                 "Assuming given common name and localhost's dnsdomainname.\n";
+    open(DOMAIN,"dnsdomainname|"); 
+    chomp(my $domain=<DOMAIN>);
+    close(DOMAIN);
+    if($domain=~m/([a-zA-Z0-9\-\.]+)/){
+        $opt->{'f'}=$opt->{'n'}.".$1";
+        print STDERR "Going with [".$opt->{'f'}."]\n";
+    }else{
+        print STDERR "Couldn't determine fully-qualified domain name. Please Specify it.\n";
+    }
+}
+
+my $hostname      = $opt->{'n'}||""; # should always be defined by here unless list
+my $fqdn          = $opt->{'f'}||""; # should always be defined by here unless list
+my $anhiliate     = $opt->{'a'}||0;
+my $deploy        = $opt->{'r'}||0;
+my $boot          = $opt->{'b'}||0;
+my $configure     = $opt->{'c'}||0;  # if used w/out deploy, we need a -p
+my $rekey         = $opt->{'k'}||0;
+my $dumpyaml      = $opt->{'d'}||0;
+my $list          = $opt->{'l'}||0;
+my $instance_type = $opt->{'t'}||"";
+
+my $writecache = 0;
+my $cachedir   = $opt->{'C'}||"/dev/shm";
+print "Options: ".Data::Dumper->Dump([$opt]) if $opt->{'d'};
+
+################################################################################  
+# Check to see if we have the credentials we're going to need to do work
+################################################################################  
+print STDERR "Validate Inputs:\n";
+my $needs = { 
+              'all'    => [
+                            "LDAP_BINDDN", 
+                            "LDAP_PASSWORD",
+                            "GITHUB_LOGIN", 
+                            "GITHUB_PASSWORD"
+                          ],
+              'linode' => [
+                            "LINODE_USERNAME", 
+                            "LINODE_PASSWORD"
+                          ],
+              'amazon' => [
+                            "AWS_ACCESS_KEY_ID", 
+                            "AWS_SECRET_ACCESS_KEY"
+                          ]
+            };
+foreach my $env (@{ $needs->{'all'} }){
+    if(! defined($ENV{$env})){
+        print STDERR "$env Not Defined.\n";
+        print STDERR "Not enough environment variables defined in the shell to the requested work.\n";
+        print STDERR "Quitting...\n";
+        exit -1;
+    }
+}
+
+if($instance_type eq "linode"){
+    foreach my $env (@{ $needs->{'linode'} }){
+        if(! defined($ENV{$env})){
+            print STDERR "$env Not Defined.\n";
+            print STDERR "Not enough environment variables defined in the shell to the requested work.\n";
+            print STDERR "Quitting...\n";
+            exit -1;
+        }
+    }
+}elsif($instance_type eq "ec2"){
+    foreach my $env (@{ $needs->{'amazon'} }){
+        if(! defined($ENV{$env})){
+            print STDERR "$env Not Defined.\n";
+            print STDERR "Not enough environment variables defined in the shell to the requested work.\n";
+            print STDERR "Quitting...\n";
+            exit -1;
+        }
+    }
+}
+ 
+################################################################################  
+# Do the work
+################################################################################  
+# Credentials we will need to create/anhiliate the host
+print STDERR "Do the work:\n";
+my $instance = undef;
+print STDERR "$instance_type\n" if($debug > 0 );
+if($instance_type eq "linode"){
+    
+    print STDERR "Getting our Linode handle\n" if($debug > 0 );
+    $instance = Linode::API->new({
+                                   'username' => $ENV{'LINODE_USERNAME'},   
+                                   'password' => $ENV{'LINODE_PASSWORD'},   
+                                 });
+}elsif($instance_type eq "ec2"){
+    $instance = EC2::Actions->new({
+                                    'access_key' => $ENV{'AWS_ACCESS_KEY_ID'},
+                                    'secret_key' => $ENV{'AWS_SECRET_ACCESS_KEY'}
+                                  });
+}else{
+    print STDERR "I don't know what type of instance you want.\n";
+    exit -1;
+}
+if(ref($instance) eq ''){
+    print STDERR "could not instanciate instance object\n";
+    exit -1;
+}
+
+# Credentials we will need to auto-configure the host
+$fqdn = $1 if $fqdn=~m/(.*)/;
+print STDERR "Instanciate Websages::Configure\n" if($debug > 0 );
+my $wc = WebSages::Configure->new({ 
+                                     'fqdn'           => $fqdn, 
+                                     'ldap'           => {
+                                                           'bind_dn'  => $ENV{'LDAP_BINDDN'},
+                                                           'password' => $ENV{'LDAP_PASSWORD'}
+                                                         },
+                                     'gitosis_base' => "$ENV{'HOME'}/dev/git/gitosis-admin",
+                                     #'github'         => {
+                                     #                      'login'    => $ENV{'GITHUB_LOGIN'},
+                                     #                      'password' => $ENV{'GITHUB_PASSWORD'}
+                                     #                    }
+                                  }); 
+exit unless(defined  $wc);
+    ############################################################################  
+    # Removal if -a
+    ############################################################################  
+
+    if($anhiliate){
+        print "Destroying $hostname\n";
+        if($instance_type eq "linode"){
+            $instance->shutdown($hostname) if($instance->is_running($hostname));
+            $instance->delete_configs($hostname);
+            $instance->delete_all_disks($hostname);
+        }elsif($instance_type eq "ec2"){
+            $instance->terminate($instance->id_from_ip($wc->ip_from_cn($hostname)));
+        }
+    }
+
+    ############################################################################  
+    # Deployment
+    ############################################################################  
+    if($deploy){
+         print "Deploying $hostname\n";
+         $instance->setsecret($wc->new_secret(15));
+         $instance->ssh_pubkey("$ENV{'HOME'}/.ssh/id_dsa.pub");
+         $instance->deploy_instance($hostname,$opt->{'r'});
+         print "This linode's Root Password was [ ".$instance->get_root_passwd()." ] (without the brackets)\n";
+         print STDERR Data::Dumper->Dump([$instance->{'ERROR'}]) if $instance->{'ERROR'};
+    }else{
+        my $ip=$wc->ip_from_cn($hostname);
+        $ip=$1 if $ip=~m/(.*)/; 
+        $wc->setip($wc->ip_from_cn($hostname));
+        $instance->setsecret($wc->get_ldap_secret());
+    }
+
+    ############################################################################  
+    # Configuration 
+    ############################################################################  
+    if($configure){
+        print "Configuring $hostname\n";
+        #get the first public ip
+        print STDERR "Getting IP\n" if($debug > 0);
+        my $ip = shift(@{ $instance->get_remote_pub_ip($instance->handle()) }); 
+        print STDERR "Setting IP\n" if($debug > 0);
+        $wc->setip($ip);
+        print STDERR "doing a ssh-keyscan\n" if($debug > 0);
+        $wc->get_remote_hostkey();
+
+        ########################################################################
+        # This doesn't go here. Encapsulate me you lazy fuck!
+        print STDERR "Getting DNS entry\n" if($debug > 0);
+        my $dns_entry=$wc->get_dns_record($fqdn);
+        $dns_entry->replace ( 'aRecord'     => $ip, 'sSHFPRecord' => $wc->{'sshfp'} );
+        print STDERR "Updating LDAP entry\n" if($debug > 0);
+        $wc->update_ldap_entry({ 'entry' => $dns_entry });
+        ########################################################################
+
+        if($instance_type eq "linode"){
+            # wait for ssh
+            print "Waiting for ssh login: (this can take a while)\n";
+            print STDERR "Waiting for ssh...\n" if($debug > 0);
+            $wc->wait_for_ssh();
+            print STDERR "Mounting /opt\n" if($debug > 0);
+            $wc->mount_opt();
+            print STDERR "Setting up pv_grub\n" if($debug > 0);
+            $instance->pv_grub($hostname);
+        }elsif($instance_type eq "ec2"){
+            $instance->add_volumes();
+            print "Waiting for console login: (this can take a while)\n";
+            $instance->wait_for_console();
+            print "Giving the instance some time to load the ssh-credentials\n";
+            sleep 20;
+            # ec2 doesn't set the root passwd by default, so we do that here
+            print "Setting the root password.\n";
+            $wc->chpasswd_root($instance->get_root_passwd());
+        }
+        print STDERR "Making remote keys\n" if($debug > 0);
+        $wc->make_remote_dsa_keypair();
+        # also, add sshkey to record so if github fails you can fix later
+        print STDERR "host record updates\n" if($debug > 0);
+        $wc->host_record_updates(); 
+        print STDERR "save_ldap_secret\n" if($debug > 0);
+        $wc->save_ldap_secret();
+        #$wc->add_github_deployment_pubkey( $wc->get_remote_dsa_pubkey() );
+        print STDERR "adding gitosis key\n" if($debug > 0);
+        $wc->add_gitosis_deployment_pubkey( $wc->get_remote_dsa_pubkey() );
+        ########################################################################
+        #print STDERR "running wcyd\n" if($debug > 0);
+        #$wc->wcyd_init($wc->get_ldap_secret());
+        print STDERR "priming the host\n" if($debug > 0);
+        $wc->prime_host($wc->get_ldap_secret());
+        #$wc->restore_known_hosts();
+    }else{
+        print "configure enabled: $configure\n";
+    }

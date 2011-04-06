@@ -1,0 +1,19 @@
+#!/usr/bin/perl -w
+BEGIN { unshift(@INC,"./lib") if(-d "./lib"); }
+use GitHub::Mechanize;
+use YAML;
+
+my $gh = GitHub::Mechanize->new({
+                                  'repo' => "websages",
+                                  'live' => 1, 
+                                  'writecache' => 1, 
+                                  'cache' => './cache', 
+                                  'debug' => 1
+                                });
+if($gh){ 
+   $gh->replace_deploy_key({
+                             'name' => 'freyr-root',
+                             'key' => 'ssh-dss AAAAB3NzaC1kc3MAAACBAPQ2Z43B5INqh2NhB8jA2yAs/U/zyzhKNhctkRZET4SY97eHUhKnJEkL0RYGiBTNK6BkszwRxQnAKJWhBxwnstZcXHFCzbmP6Imdc/xXYfZ5sqDAYfw71QnHtNDmug+XMe+dNrmbvEvRI8uoPoc/VrQq93DGHlrrB27zcTdYkKD/AAAAFQDoiZGtmMvXK8RjnCgxRmaMiPzgwwAAAIEAxMVlsAvnT9O6AojHXrcXaOI8slUQVtKxYAdUS4307MNxVMYiSKdYj8vPX416dXCFMtgYtxpcWh5W8N2BcOM8kExz3jeyS8ct5GGcQq2dklhNzUNaNU2ixf+BBzEPLwFsfJmkvTYMWrWogq4WcdlQYr7UUdYIPbJd+3Jz/5Ml1tAAAACBAMj6wKAPlfRAZ6JsIo3PVuQ/i3slrcxnWpviBDQc2Jl2DTuwBRgX4T6sirUu36OF1SzI6etDILYO+uMhV3T9Y83A1511NpyF6CrSbt63kQwJNN6u/qG0fP4YSLbeAFgaRway2g+fCbfcvjfYLijOnZSbUcB0b0uhbfd4IpSAgMiA root@freyr.websages.com'
+                            });  
+}
+exit 0;

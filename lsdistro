@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+BEGIN { unshift @INC, './lib' if -d './lib'; }
+use LinodeAPI::Actions;
+$instance = Linode::API->new({ 
+                               'username' => $ENV{'LINODE_USERNAME'},
+                               'password' => $ENV{'LINODE_PASSWORD'},
+                             }); 
+
+$instance->distribution_list_dump();
