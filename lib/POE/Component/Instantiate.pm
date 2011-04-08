@@ -163,7 +163,6 @@ sub get_macaddr {
                          $heap->{'clipboard'}->{'macaddrs'} = 
                              $self->{'instance'}->vm_macaddrs($heap->{'clipboard'}->{'vmname'});
                          $self->{'instance'}->teardown();
-                         print YAML::Dump($heap->{'clipboard'});
                        }
                   );
 }
@@ -171,7 +170,7 @@ sub get_macaddr {
 sub ldap_pxe {
     my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     print "ldap_pxe\n";
-    print Data::Dumper->Dump([$heap->{'clipboard'}]);
+    # macaddr(s) should be defined in the clipboard now.
     $kernel->yield(shift(@{ $heap->{'actions'} })) if($heap->{'actions'}->[0]);
 }
 
@@ -256,7 +255,7 @@ sub on_child_stdout {
     my ($stdout_line, $wheel_id) = @_[ARG0, ARG1];
     my $child = $heap->{children_by_wid}{$wheel_id};
     $heap->{'child_output'}.="$stdout_line\n";
-    print "pid ", $child->PID, " STDOUT: $stdout_line\n";
+    #print "pid ", $child->PID, " STDOUT: $stdout_line\n";
 }
 
 # Wheel event, including the wheel's ID.
@@ -280,7 +279,8 @@ sub on_child_close {
     delete $heap->{children_by_pid}{$child->PID};
     # only proceed if we've closed
     if(defined($heap->{'child_output'})){
-        $heap->{'clipboard'} = YAML::Load("$heap->{'child_output'}\n");
+        # FIXME this should be done on a private set of filehandles, not on STDOUT
+        eval { $heap->{'clipboard'} = YAML::Load("$heap->{'child_output'}\n"); };
         $heap->{'child_output'} = undef;
     }
     $kernel->yield(shift(@{ $heap->{'actions'} })) if($heap->{'actions'}->[0]);
