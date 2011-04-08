@@ -12,6 +12,10 @@ use AppUtil::XMLInputUtil;
 use AppUtil::HostUtil;
 use Data::Dumper;
 
+our $tracelevel = 0;
+our $tracefilter;
+
+
 $Util::script_version = "1.0";
 
 sub new{
@@ -39,32 +43,47 @@ sub teardown{
     return $self;
 }
 
+sub trace{
+   my ($self, $level, $text) = @_;
+   if (($level <= $tracelevel) && (defined $text)) {
+      if (defined($tracefilter)) {
+         if ($text !~ $tracefilter) {
+            print STDERR $text;
+         }
+      } else {
+         print STDERR $text;
+      }
+   }
+   return;
+}
+
 sub power_on {
     my $self = shift;
     my $name = shift if @_;
     return undef unless $name;
     my $vm = $self->vm_handle({ 'displayname' => $name });
+    return undef if($vm->runtime->powerState->val eq 'poweredOn');
     my $mor_host = $vm->runtime->host;
     my $hostname = Vim::get_view(mo_ref => $mor_host)->name;
     eval {
            $vm->PowerOnVM();
-           Util::trace(0, "\nvirtual machine '" . $vm->name .
+           $self->trace(0, "\nvirtual machine '" . $vm->name .
                           "' under host $hostname powered on \n");
          };
     if($@){
         if(ref($@) eq 'SoapFault'){
-            Util::trace (0, "\nError in '" . $vm->name . "' under host $hostname: ");
+            $self->trace (2, "\nError in '" . $vm->name . "' under host $hostname: ");
             if(ref($@->detail) eq 'NotSupported'){
-                Util::trace(0,"Virtual machine is marked as a template ");
+                $self->trace(2,"Virtual machine is marked as a template ");
             }elsif(ref($@->detail) eq 'InvalidPowerState'){
-                Util::trace(0, "The attempted operation cannot be performed in the current state" );
+                $self->trace(2, "The attempted operation cannot be performed in the current state" );
             }elsif(ref($@->detail) eq 'InvalidState'){
-                Util::trace(0,"Current State of the virtual machine is not supported for this operation");
+                $self->trace(2,"Current State of the virtual machine is not supported for this operation");
             }else{
-                Util::trace(0, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
+                $self->trace(2, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
             }
         }else{
-            Util::trace(0, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
+            $self->trace(2, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
         }
     }
 }
@@ -74,26 +93,27 @@ sub power_off{
     my $name = shift if @_;
     return undef unless $name;
     my $vm = $self->vm_handle({ 'displayname' => $name });
+    return undef if($vm->runtime->powerState->val eq 'poweredOff');
     my $mor_host = $vm->runtime->host;
     my $hostname = Vim::get_view(mo_ref => $mor_host)->name;
     eval {
            $vm->PowerOffVM();
-           Util::trace (0, "\nvirtual machine '" . $vm->name . "' under host $hostname powered off ");
+           $self->trace (0, "\nvirtual machine '" . $vm->name . "' under host $hostname powered off ");
          };
     if($@){
         if(ref($@) eq 'SoapFault'){
-            Util::trace (0, "\nError in '" . $vm->name . "' under host $hostname: ");
+            $self->trace (0, "\nError in '" . $vm->name . "' under host $hostname: ");
             if (ref($@->detail) eq 'InvalidPowerState'){
-                Util::trace(0, "The attempted operation". " cannot be performed in the current state" );
+                $self->trace(0, "The attempted operation". " cannot be performed in the current state" );
             }elsif(ref($@->detail) eq 'InvalidState'){
-                Util::trace(0,"Current State of the"." virtual machine is not supported for this operation");
+                $self->trace(0,"Current State of the"." virtual machine is not supported for this operation");
             }elsif(ref($@->detail) eq 'NotSupported'){
-                Util::trace(0,"Virtual machine is marked as template");
+                $self->trace(0,"Virtual machine is marked as template");
             }else{
-                Util::trace(0, "VM '"  .$vm->name. "' can't be powered off \n". $@ . "" );
+                $self->trace(0, "VM '"  .$vm->name. "' can't be powered off \n". $@ . "" );
             }
         }else{
-            Util::trace(0, "VM '"  .$vm->name. "' can't be powered off \n" . $@ . "" );
+            $self->trace(0, "VM '"  .$vm->name. "' can't be powered off \n" . $@ . "" );
         }
     }
 }
@@ -137,7 +157,7 @@ sub vm_macaddrs{
     my $vm = shift if @_;
     my $macaddrs;
     if(ref($vm) ne 'VirtualMachine'){
-        $vm = $self->vm_handle($vm);
+        $vm = $self->vm_handle({ 'displayname' => $vm });
     }
     return undef unless(ref($vm) eq 'VirtualMachine');
     my $config = $vm->config if $vm->config;
@@ -177,7 +197,7 @@ sub create_vm {
    my $host_view = Vim::find_entity_view(view_type => 'HostSystem',
                                          filter    => {'name' => $args->{'vmhost'}});
    if (!$host_view) {
-       Util::trace(0, "\nError creating VM '$args->{'vmname'}': " 
+       $self->trace(0, "\nError creating VM '$args->{'vmname'}': " 
                       . "Host '$args->{'vmhost'}' not found\n");
        return;
    }
@@ -190,12 +210,12 @@ sub create_vm {
 
    if ($ds_info{mor} eq 0) {
       if ($ds_info{name} eq 'datastore_error') {
-         Util::trace(0, "\nError creating VM '$args->{'vmname'}': "
+         $self->trace(0, "\nError creating VM '$args->{'vmname'}': "
                       . "Datastore $args->{'datastore'} not available.\n");
          return;
       }
       if ($ds_info{name} eq 'disksize_error') {
-         Util::trace(0, "\nError creating VM '$args->{'vmname'}': The free space "
+         $self->trace(0, "\nError creating VM '$args->{'vmname'}': The free space "
                       . "available is less than the specified disksize.\n");
          return;
       }
@@ -216,7 +236,7 @@ sub create_vm {
    if($net_settings{'error'} eq 0) {
       push(@vm_devices, $net_settings{'network_conf'});
    } elsif ($net_settings{'error'} eq 1) {
-      Util::trace(0, "\nError creating VM '$args->{'vmname'}': "
+      $self->trace(0, "\nError creating VM '$args->{'vmname'}': "
                     . "Network '$args->{'nic_network'}' not found\n");
       return;
    }
@@ -242,13 +262,13 @@ sub create_vm {
                                                  );
 
    unless (@$datacenter_views) {
-      Util::trace(0, "\nError creating VM '$args->{'vmname'}': "
+      $self->trace(0, "\nError creating VM '$args->{'vmname'}': "
                    . "Datacenter '$args->{'datacenter'}' not found\n");
       return;
    }
 
    if ($#{$datacenter_views} != 0) {
-      Util::trace(0, "\nError creating VM '$args->{'vmname'}': "
+      $self->trace(0, "\nError creating VM '$args->{'vmname'}': "
                    . "Datacenter '$args->{'datacenter'}' not unique\n");
       return;
    }
@@ -268,38 +288,38 @@ sub create_vm {
                                  config => $vm_config_spec, 
                                  pool => $respool_handle
                                );
-      Util::trace(0, "\nSuccessfully created virtual machine: "
+      $self->trace(0, "\nSuccessfully created virtual machine: "
                        ."'$args->{'vmname'}' under host $args->{'vmhost'}\n");
     };
     if ($@) {
-       Util::trace(0, "\nError creating VM '$args->{'vmname'}': ");
+       $self->trace(0, "\nError creating VM '$args->{'vmname'}': ");
        print Data::Dumper->Dump([$@]);
        if (ref($@) eq 'SoapFault') {
           if (ref($@->detail) eq 'PlatformConfigFault') {
-             Util::trace(0, "Invalid VM configuration: "
+             $self->trace(0, "Invalid VM configuration: "
                             . ${$@->detail}{'text'} . "\n");
           }
           elsif (ref($@->detail) eq 'InvalidDeviceSpec') {
-             Util::trace(0, "Invalid Device configuration: "
+             $self->trace(0, "Invalid Device configuration: "
                             . ${$@->detail}{'property'} . "\n");
           }
            elsif (ref($@->detail) eq 'DatacenterMismatch') {
-             Util::trace(0, "DatacenterMismatch, the input arguments had entities "
+             $self->trace(0, "DatacenterMismatch, the input arguments had entities "
                           . "that did not belong to the same datacenter\n");
           }
            elsif (ref($@->detail) eq 'HostNotConnected') {
-             Util::trace(0, "Unable to communicate with the remote host,"
+             $self->trace(0, "Unable to communicate with the remote host,"
                          . " since it is disconnected\n");
           }
           elsif (ref($@->detail) eq 'InvalidState') {
-             Util::trace(0, "The operation is not allowed in the current state\n");
+             $self->trace(0, "The operation is not allowed in the current state\n");
           }
           elsif (ref($@->detail) eq 'DuplicateName') {
-             Util::trace(0, "Virtual machine already exists.\n");
+             $self->trace(0, "Virtual machine already exists.\n");
           }
         }
         else {
-              Util::trace(0, "\n" . $@ . "\n");
+              $self->trace(0, "\n" . $@ . "\n");
         }
    }
    $self->flush_env();

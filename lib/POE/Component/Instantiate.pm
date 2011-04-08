@@ -1,3 +1,11 @@
+################################################################################
+# This is a non-blocking (forking w/Poe::Wheel::Run) wrapper around the various
+# service provider libraries (EC2::Actions, Linode::Actions, and
+# VMware::ESX::Actions) The theory is that the Provider libraries should provide
+# A common interface for the various Actions, and this module will create task
+# lists and run through the tasks sequentially, but without blocking any other
+# POE events that are going on at the time...
+################################################################################
 package POE::Component::Instantiate;
 use POE;
 use POE qw( Wheel::Run );
@@ -152,16 +160,18 @@ sub get_macaddr {
                    sub {
                          # Deploy if not exist
                          $self->{'instance'} = $self->service_provider();
-                         $self->{'instance'}->query_vm($heap->{'clipboard'}->{'vmname'},'macaddr');
+                         $heap->{'clipboard'}->{'macaddrs'} = 
+                             $self->{'instance'}->vm_macaddrs($heap->{'clipboard'}->{'vmname'});
                          $self->{'instance'}->teardown();
+                         print YAML::Dump($heap->{'clipboard'});
                        }
                   );
-    $kernel->yield(shift(@{ $heap->{'actions'} })) if($heap->{'actions'}->[0]);
 }
 
 sub ldap_pxe {
     my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     print "ldap_pxe\n";
+    print Data::Dumper->Dump([$heap->{'clipboard'}]);
     $kernel->yield(shift(@{ $heap->{'actions'} })) if($heap->{'actions'}->[0]);
 }
 
@@ -244,7 +254,8 @@ sub do_nonblock{
 sub on_child_stdout {
     my ($self, $kernel, $heap, $sender, $stdout_line, $wheel_id) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     my ($stdout_line, $wheel_id) = @_[ARG0, ARG1];
-    my $child = $_[HEAP]{children_by_wid}{$wheel_id};
+    my $child = $heap->{children_by_wid}{$wheel_id};
+    $heap->{'child_output'}.="$stdout_line\n";
     print "pid ", $child->PID, " STDOUT: $stdout_line\n";
 }
 
@@ -268,6 +279,10 @@ sub on_child_close {
     print "pid ", $child->PID, " closed all pipes.\n";
     delete $heap->{children_by_pid}{$child->PID};
     # only proceed if we've closed
+    if(defined($heap->{'child_output'})){
+        $heap->{'clipboard'} = YAML::Load("$heap->{'child_output'}\n");
+        $heap->{'child_output'} = undef;
+    }
     $kernel->yield(shift(@{ $heap->{'actions'} })) if($heap->{'actions'}->[0]);
   }
 
