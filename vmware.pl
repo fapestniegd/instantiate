@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 use strict;
 ################################################################################
+# A skeleton POE wrapper to test how the functionality will work in a bot
+################################################################################
 BEGIN { 
         if(-d "/usr/local/lib/vmware-vcli/apps"){
             unshift(@INC,"/usr/local/lib/vmware-vcli/apps") 
@@ -50,7 +52,8 @@ sub _start {
     my ( $self, $kernel, $heap, $sender, @args) = 
      @_[OBJECT,  KERNEL,  HEAP,  SENDER, ARG0 .. $#_];
     $heap->{'control'} = POE::Component::Instantiate->new($data->{'sp'});
-    $kernel->post( $heap->{'control'}, $data->{'task'}, $data->{'cb'} );
+    $kernel->post( $heap->{'control'}, 'add_clipboard', $data->{'cb'} );
+    $kernel->post( $heap->{'control'}, $data->{'task'});
   }
 
 # tear down the connection to the service provider/vcenter server

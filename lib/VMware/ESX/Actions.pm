@@ -33,6 +33,72 @@ sub new{
     return $self;
 }
 
+sub teardown{
+    my $self = shift;
+    Util::disconnect();
+    return $self;
+}
+
+sub power_on {
+    my $self = shift;
+    my $name = shift if @_;
+    return undef unless $name;
+    my $vm = $self->vm_handle({ 'displayname' => $name });
+    my $mor_host = $vm->runtime->host;
+    my $hostname = Vim::get_view(mo_ref => $mor_host)->name;
+    eval {
+           $vm->PowerOnVM();
+           Util::trace(0, "\nvirtual machine '" . $vm->name .
+                          "' under host $hostname powered on \n");
+         };
+    if($@){
+        if(ref($@) eq 'SoapFault'){
+            Util::trace (0, "\nError in '" . $vm->name . "' under host $hostname: ");
+            if(ref($@->detail) eq 'NotSupported'){
+                Util::trace(0,"Virtual machine is marked as a template ");
+            }elsif(ref($@->detail) eq 'InvalidPowerState'){
+                Util::trace(0, "The attempted operation cannot be performed in the current state" );
+            }elsif(ref($@->detail) eq 'InvalidState'){
+                Util::trace(0,"Current State of the virtual machine is not supported for this operation");
+            }else{
+                Util::trace(0, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
+            }
+        }else{
+            Util::trace(0, "VM '"  .$vm->name. "' can't be powered on \n" . $@ . "" );
+        }
+    }
+}
+
+sub power_off{
+    my $self = shift;
+    my $name = shift if @_;
+    return undef unless $name;
+    my $vm = $self->vm_handle({ 'displayname' => $name });
+    my $mor_host = $vm->runtime->host;
+    my $hostname = Vim::get_view(mo_ref => $mor_host)->name;
+    eval {
+           $vm->PowerOffVM();
+           Util::trace (0, "\nvirtual machine '" . $vm->name . "' under host $hostname powered off ");
+         };
+    if($@){
+        if(ref($@) eq 'SoapFault'){
+            Util::trace (0, "\nError in '" . $vm->name . "' under host $hostname: ");
+            if (ref($@->detail) eq 'InvalidPowerState'){
+                Util::trace(0, "The attempted operation". " cannot be performed in the current state" );
+            }elsif(ref($@->detail) eq 'InvalidState'){
+                Util::trace(0,"Current State of the"." virtual machine is not supported for this operation");
+            }elsif(ref($@->detail) eq 'NotSupported'){
+                Util::trace(0,"Virtual machine is marked as template");
+            }else{
+                Util::trace(0, "VM '"  .$vm->name. "' can't be powered off \n". $@ . "" );
+            }
+        }else{
+            Util::trace(0, "VM '"  .$vm->name. "' can't be powered off \n" . $@ . "" );
+        }
+    }
+}
+
+
 # The vi perl toolkit can read these from the environment
 sub load_env{
     my $self = shift;
