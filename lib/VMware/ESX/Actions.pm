@@ -1,6 +1,7 @@
 package VMware::ESX::Actions;
 use strict;
 use warnings;
+use POE qw( Wheel::Run );
 
 use FindBin;
 use lib "$FindBin::Bin/../";
@@ -64,7 +65,28 @@ sub vm_handle{
     $self->flush_env();
     return $vm_view;
 }
-1;
+
+sub vm_macaddrs{
+    my $self = shift;
+    my $vm = shift if @_;
+    my $macaddrs;
+    if(ref($vm) ne 'VirtualMachine'){
+        $vm = $self->vm_handle($vm);
+    }
+    return undef unless(ref($vm) eq 'VirtualMachine');
+    my $config = $vm->config if $vm->config;
+    my $hardware = $config->hardware if $config->hardware;
+    my $device=$hardware->device if $hardware->device;
+    foreach my $dev (@{ $device }){
+        #print ref($dev)."\n";
+        my $type=ref($dev);
+        #print grep(/$type/,("VirtualEthernetCard", "VirtualE1000", "VirtualPCNet32", "VirtualVmxnet"))."\n";
+        if(grep(/$type/,("VirtualEthernetCard", "VirtualE1000", "VirtualPCNet32", "VirtualVmxnet"))>0){
+            push(@{ $macaddrs },$dev->macAddress);
+        }
+    }
+    return $macaddrs;
+}
 
 sub destroy_vm{
     my $self = shift;
