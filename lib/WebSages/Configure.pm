@@ -361,8 +361,8 @@ use File::Temp qw/ tempdir /;
     open(ROOTPUBKEY, "> $self->{'gitosis_base'}/gitosis-admin/keydir/root\@$self->{'fqdn'}.pub");
     print ROOTPUBKEY "$rootpubkey\n";
     close(ROOTPUBKEY);
-    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git add keydir/root\@$self->{'fqdn'}.pub)");
-    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git commit -a -m \"new $self->{'fqdn'}.pub\")");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git add keydir/root\@$self->{'fqdn'}.pub) >/dev/null 2>&1");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git commit -a -m \"new $self->{'fqdn'}.pub\") >/dev/null 2>&1");
     system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git push >/dev/null 2>&1)");
 }
 
