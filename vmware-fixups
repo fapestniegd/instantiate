@@ -1,0 +1,65 @@
+sub poweron {
+    my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    print "poweron\n";
+    $kernel->yield('do_nonblock',
+                   sub {
+                         # Deploy if not exist
+                         $self->{'instance'} = $self->service_provider();
+                         $self->{'instance'}->power_on($heap->{'clipboard'}->{'vmname'});
+                         $self->{'instance'}->teardown();
+                       }
+                  );
+}
+sub get_macaddr {
+    my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    print "get_macaddr\n";
+    $kernel->yield('do_nonblock',
+                   sub {
+                         # Deploy if not exist
+                         $self->{'instance'} = $self->service_provider();
+                         $heap->{'clipboard'}->{'macaddrs'} =
+                             $self->{'instance'}->vm_macaddrs($heap->{'clipboard'}->{'vmname'});
+                         $self->{'instance'}->teardown();
+                       }
+                  );
+}
+sub deploy {
+    my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    print "deploy\n";
+    $kernel->yield('do_nonblock',
+                   sub {
+                         # Deploy if not exist
+                         $self->{'instance'} = $self->service_provider();
+                         if(! $self->{'instance'}->vm_handle({ 'displayname' => $heap->{'clipboard'}->{'vmname'} })){
+                             $self->{'instance'}->create_vm($heap->{'clipboard'});
+                         }
+                         $self->{'instance'}->teardown();
+                       }
+                  );
+}
+sub destroy {
+    my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    print "destroy\n";
+    $kernel->yield('do_nonblock',
+                   sub {
+                         # Destroy if exist
+                         $self->{'instance'} = $self->service_provider();
+                         if($self->{'instance'}->vm_handle({ 'displayname' => $heap->{'clipboard'}->{'vmname'} })){
+                             $self->{'instance'}->destroy_vm({ 'displayname' => $heap->{'clipboard'}->{'vmname'}});
+                         }
+                         $self->{'instance'}->teardown();
+                       }
+                  );
+}
+sub shutdown {
+    my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    print "shutdown\n";
+    $kernel->yield('do_nonblock',
+                   sub {
+                         # Deploy if not exist
+                         $self->{'instance'} = $self->service_provider();
+                         $self->{'instance'}->power_off($heap->{'clipboard'}->{'vmname'});
+                         $self->{'instance'}->teardown();
+                       }
+                  );
+}
