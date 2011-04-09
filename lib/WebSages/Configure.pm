@@ -1,6 +1,7 @@
 package WebSages::Configure;
 use GitHub::Mechanize;
 use Net::LDAP;
+use Net::Ping;
 use File::Temp qw/ tempfile tempdir cleanup /;
 
 sub new{
@@ -23,13 +24,31 @@ sub new{
     if($self->{'secret'}){ $self->setsecret($self->{'secret'}); }
     $self->{'group'} = $construct->{'groups'} if $construct->{'groups'};
     if(!defined $self->{'fqdn'}){
-        $self->error('I need a fqdn.');
-        print STDERR $self->error();
+        $self->error("I need a fqdn.\n");
+        print $self->error();
         return undef;
+    } # validate all $ENV and domain/hostname variables here or retrun undef # #
+    return $self;
+}
+
+sub disable_monitoring{
+    my $self = shift;
+    print STDERR "You should really disable monitoring here.\n";
+    return $self;
+}
+
+sub enable_monitoring{
+    my $self = shift;
+    print STDERR "You should really enable monitoring here.\n";
+    return $self;
+}
+
+sub stow_ip{
+    my $self = shift;
+    my $cb = shift if @_;
+    if($cb){
+       $self->setip($cb->{'ipaddress'}->[0]);
     }
-    # validate all $ENV and domain/hostname variables here or retrun undef
-    #
-    #
     return $self;
 }
 
@@ -39,6 +58,10 @@ sub setip{
     if($ipaddress =~m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/){
         $self->{'ipaddress'} = $1;
     }else{
+        $self->{'ipaddress'} = undef;
+    }
+    # or you'll configure your workstation, ask me how I know...
+    if($ipaddress =~m/0.0.0.0/){
         $self->{'ipaddress'} = undef;
     }
     return $self->{'ipaddress'};
@@ -95,6 +118,14 @@ sub restore_known_hosts{
     return $self;
 }
 
+sub ssh_keyscan{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->get_remote_hostkey();
+    $cb->{'sshfp'} = $self->{'sshfp'};
+    print YAML::Dump($cb);
+}
+
 sub get_remote_hostkey{
     my $self = shift;
     # wait for ssh to become available and get it's ssh-key so it won't ask
@@ -124,12 +155,18 @@ sub get_remote_hostkey{
 sub mount_opt{
     my $self = shift;
     # mount the opt disk
-    $self->rexec("/bin/grep /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
-    $self->rexec("/bin/grep ' /opt ' /etc/mtab || /bin/mount -a");
+    $self->rexec("/bin/grep -q /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
+    $self->rexec("/bin/grep -q ' /opt ' /etc/mtab || /bin/mount -a");
     return $self;
 }
 
 sub prime_host{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->_prime_host($self->get_ldap_secret() ); 
+}
+
+sub _prime_host{
     my $self = shift;
     my $LDAPSECRET_TAINT = shift if @_; # heh, taint
     my $LDAPSECRET;
@@ -220,19 +257,36 @@ sub get_remote_dsa_pubkey{
     return $self->{'remote_ssh_pubkey'};
 }
 
-sub add_gitosis_deployment_pubkey{
+sub gitosis_deployment_key{
     my $self = shift;
-    my $rootpubkey=shift;
+    my $cb = shift if @_;
+    $self->add_gitosis_deployment_pubkey( $cb->{'ssh_pubkey'}, $cb->{'gitosis-admin'} );
+}
+
+sub add_gitosis_deployment_pubkey{
+use File::Temp qw/ tempdir /;
+    my $self = shift;
+    my $rootpubkey = shift if @_;
+    $self->{'gitosis-admin'} = shift if @_;
+    $self->{'gitosis_base'} = tempdir( CLEANUP => 1 );
     unless(defined($rootpubkey)){
         print STDERR "No pubkey supplied";
         return undef;
     }
-    print STDERR "Updating gitosis deployment key to $self->{'gitosis_base'}\n"; 
+    print STDERR "Updating gitosis deployment key to $self->{'gitosis_base'}/gitosis-admin\n"; 
     my $git_remote = undef;
-    if(! -f "$self->{'gitosis_base'}/.git/config"){ 
+   
+    # if it's not there, clone it.
+    if(! -f "$self->{'gitosis_base'}/gitosis-admin/.git/config"){ 
+        system("cd $self->{'gitosis_base'}; /usr/bin/git clone $self->{'gitosis-admin'} >/dev/null 2>&1");
+    }
+
+    # if it's still not there, abort;
+    if(! -f "$self->{'gitosis_base'}/gitosis-admin/.git/config"){ 
         print STDERR "unable to locate config file: $self->{'gitosis_base'}/.git/config\n";
+        return undef;
     }else{
-        open(GITCONF,"$self->{'gitosis_base'}/.git/config");
+        open(GITCONF,"$self->{'gitosis_base'}/gitosis-admin/.git/config");
         my $in_origin=0;
         while(my $line=<GITCONF>){
             chomp($line);
@@ -252,11 +306,16 @@ sub add_gitosis_deployment_pubkey{
         }
         close(GITCONF);
     }
+        print STDERR "----------------------------------------\n";
+        print STDERR "\n";
+        print STDERR "$git_remote\n";
+        print STDERR "\n";
+        print STDERR "----------------------------------------\n";
     my $modified=0;
-    if(-f "$self->{'gitosis_base'}/gitosis.conf"){
+    if(-f "$self->{'gitosis_base'}/gitosis-admin/gitosis.conf"){
         print STDERR "Updating gitosis.conf [group deployments]\n"; 
-        open(GITOSISCONF,"$self->{'gitosis_base'}/gitosis.conf");
-        open(NEWCONF,"> $self->{'gitosis_base'}/gitosis.conf.new");
+        open(GITOSISCONF,"$self->{'gitosis_base'}/gitosis-admin/gitosis.conf");
+        open(NEWCONF,"> $self->{'gitosis_base'}/gitosis-admin/gitosis.conf.new");
         my $in_deployments=0;
         while(my $line=<GITOSISCONF>){
             chomp($line);
@@ -282,14 +341,14 @@ sub add_gitosis_deployment_pubkey{
         close(NEWCONF);
         close(GITOSISCONF);
     }else{
-        print STDERR "no $self->{'gitosis_base'}/gitosis.conf to modify?\n";
+        print STDERR "no $self->{'gitosis_base'}/gitosis-admin/gitosis.conf to modify?\n";
     }
     if($modified == 1){
         print STDERR "gitosis.conf modified.\n";
-        system("/bin/mv $self->{'gitosis_base'}/gitosis.conf.new $self->{'gitosis_base'}/gitosis.conf");
+        system("/bin/mv $self->{'gitosis_base'}/gitosis-admin/gitosis.conf.new $self->{'gitosis_base'}/gitosis-admin/gitosis.conf");
     }else{
         print STDERR "Key was already in deployments, no modification needed.\n";
-        system("/bin/rm $self->{'gitosis_base'}/gitosis.conf.new");
+        system("/bin/rm $self->{'gitosis_base'}/gitosis-admin/gitosis.conf.new");
     }
     # we have to use our own known hosts file here to keep git from needing a .ssh/config, ugh.
     if(defined($git_remote)){
@@ -298,13 +357,13 @@ sub add_gitosis_deployment_pubkey{
         print STDERR "ssh-keyscan -t dsa,rsa,rsa1 $git_remote >> $ENV{'HOME'}/.ssh/known_hosts\n";
         print STDERR "Unable to determine remote git server for ssh-keyscan\n";
     }
-    system("(cd $self->{'gitosis_base'}; /usr/bin/git pull)");
-    open(ROOTPUBKEY, "> $self->{'gitosis_base'}/keydir/root\@$self->{'fqdn'}.pub");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git pull >/dev/null 2>&1)");
+    open(ROOTPUBKEY, "> $self->{'gitosis_base'}/gitosis-admin/keydir/root\@$self->{'fqdn'}.pub");
     print ROOTPUBKEY "$rootpubkey\n";
     close(ROOTPUBKEY);
-    system("(cd $self->{'gitosis_base'}; /usr/bin/git add keydir/root\@$self->{'fqdn'}.pub)");
-    system("(cd $self->{'gitosis_base'}; /usr/bin/git commit -a -m \"new $self->{'fqdn'}.pub\")");
-    system("(cd $self->{'gitosis_base'}; git push)");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git add keydir/root\@$self->{'fqdn'}.pub)");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git commit -a -m \"new $self->{'fqdn'}.pub\")");
+    system("(cd $self->{'gitosis_base'}/gitosis-admin; /usr/bin/git push >/dev/null 2>&1)");
 }
 
 sub add_github_deployment_pubkey{
@@ -447,6 +506,16 @@ use Net::LDAP;
         }
     }
     return undef;
+}
+
+sub update_dns{
+    my $self = shift;
+    my $cb = shift if @_;
+    print STDERR "Getting DNS entry\n" if($debug > 0);
+    my $dns_entry = $self->get_dns_record($cb->{'fqdn'});
+    $dns_entry->replace ( 'aRecord'     => $cb->{'ipaddress'}, 'sSHFPRecord' => $cb->{'sshfp'} );
+    print STDERR "Updating LDAP entry\n" if($debug > 0);
+    $self->update_ldap_entry({ 'entry' => $dns_entry });
 }
 
 sub get_dns_record{
@@ -619,6 +688,7 @@ sub update_ldap_entry{
     return $self;
 }
 
+# use the ipaddress here or it will cache in DNS
 sub wait_for_ssh{
     my $self=shift;
     my $hostname;
@@ -638,22 +708,20 @@ sub wait_for_ssh{
     return $self;
 }
 
-sub wait_for_ssh{
-    my $self=shift;
-    my $hostname;
-    my $count=0;
-    my $got_hostname=0;
-    while((! $got_hostname)&&($count <= 10)){
-        print "Waiting for ssh login: " if($count>0);
-        for(my $i=0; $i<$count; $i++){ print "."; }
-        print "\n" if($count>0);
-        $count++;
-        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} hostname|");
-        chomp(my $hostname=<SSH>);
-        close(SSH);
-        $got_hostname=1 if($hostname); 
-        sleep 30 unless $got_hostname;
+# use the ipaddress here or it will cache in DNS
+sub wait_for_reboot{
+    my $self = shift;
+    my $cb = shift if @_;
+    my $p = Net::Ping->new();
+    while($p->ping( $cb->{'ipaddress'}->[0] ) ){
+        print STDERR "$cb->{'ipaddress'}->[0] is still up. Waiting for down.\n";
+        sleep 5;
+    }
+    while(! $p->ping($cb->{'ipaddress'}->[0]) ){
+        print STDERR "$cb->{'ipaddress'}->[0] is still down. Waiting for up.\n";
+        sleep 5;
     }
     return $self;
 }
+
 1;

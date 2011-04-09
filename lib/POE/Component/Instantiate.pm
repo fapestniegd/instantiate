@@ -15,7 +15,7 @@ $|=1;
 # Things we "know how to do"
 # the 'sp:*' items go here (service provider)
 use EC2::Actions;
-use LinodeAPI::Actions;
+use Linode::Actions;
 use VMware::ESX::Actions;
 
 # the 'wc:*' items come from here (websages configure)
@@ -25,30 +25,18 @@ sub new {
     my $class = shift;
     my $self = bless { }, $class;
     my $cnstr = shift if @_;
-    $self->{'action'} = $cnstr->{'action'}."::Action" if $cnstr->{'action'};
-    $self->{'credentials'} = $cnstr->{'connection'} if $cnstr->{'connection'};
+    $self->{'actions'} = $cnstr->{'sp'}->{'actions'} if $cnstr->{'sp'}->{'actions'};
+    $self->{'credentials'} = $cnstr->{'sp'}->{'connection'} if $cnstr->{'sp'}->{'connection'};
+    $self->{'clipboard'} = $cnstr->{'cb'} if $cnstr->{'cb'};
+    $self->{'task'} = $cnstr->{'task'} if $cnstr->{'task'};
     POE::Session->create(
                           options => { debug => 0, trace => 0},
                           object_states => [
                                              $self => {
                                                          _start           => "_poe_start",
-                                                         add_clipboard    => "add_clipboard",
-                                                         shutdown         => "shutdown",
-                                                         destroy          => "destroy",
-                                                         clean_keys       => "clean_keys",
-                                                         deploy           => "deploy",
-                                                         get_macaddr      => "get_macaddr",
-                                                         ldap_pxe         =>  "ldap_pxe",
-                                                         dhcplinks        => "dhcplinks",
-                                                         poweron          => "poweron",
-                                                         ping_until_up    => "ping_until_up",
-                                                         ldap_nopxe       => "ldap_nopxe",
-                                                         ping_until_down  => "ping_until_down",
-                                                         post_config      => "post_config",
-                                                         inspect_config   => "inspect_config",
-                                                         cleanup          => "cleanup",
-                                                         esx_redeploy     => "esx_redeploy",
                                                          do_nonblock      => "do_nonblock",
+                                                         redeploy         => "redeploy",
+                                                         next_item        => "next_item",
                                                          got_child_stdout => "on_child_stdout",
                                                          got_child_stderr => "on_child_stderr",
                                                          got_child_close  => "on_child_close",
@@ -62,30 +50,31 @@ sub new {
 
 sub service_provider{
     my $self = shift;
-    my $type = shift||$self->{'action'};
+    my $type = shift||$self->{'actions'};
     my $creds = shift||$self->{'credentials'};
-    if($type == 'VMware::ESX'){
+    if($type eq 'VMware::ESX'){
         return VMware::ESX::Actions->new($creds);
     }
-    if($type == 'Linode'){
+    if($type eq 'Linode'){
         return Linode::Actions->new($creds);
-    }
-    if($type == 'EC2'){
+    } 
+    if($type eq 'EC2'){
         return EC2::Actions->new($creds);
     }
 }
 
 sub _poe_start {
     my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
+    $heap->{'clipboard'} = $self->{'clipboard'} if $self->{'clipboard'};
     $self->{'sp'} = $self->service_provider();
     $self->{'wc'} =  WebSages::Configure->new({
-                                                'fqdn'    => $instance_fqdn,
+                                                'fqdn'    => $heap->{'clipboard'}->{'fqdn'},
                                                 'ldap'    => {
                                                                'bind_dn'  => $ENV{'LDAP_BINDDN'},
                                                                'password' => $ENV{'LDAP_PASSWORD'}
                                                              },
                                                 'gitosis' => "$ENV{'GITOSIS_HOME'}",
-                                             };
+                                             });
     $_[KERNEL]->alias_set("$_[OBJECT]"); # set the object as an alias so it may be 'posted' to
 }
 
@@ -94,13 +83,6 @@ sub _poe_stop {
     $_[KERNEL]->alias_remove("$_[OBJECT]");
 }
 
-################################################################################
-# Master Tasks
-################################################################################
-sub add_clipboard{
-    my ($self, $kernel, $heap, $sender, $cb, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
-    $heap->{'clipboard'} = $cb;
-}
 ################################################################################
 # There are subtle differences in how each type is deployed, here's where we
 # make those distinctions. What the service provider api does is only a 
@@ -112,7 +94,8 @@ sub add_clipboard{
 ################################################################################
 sub redeploy {
     my ($self, $kernel, $heap, $sender, $cb, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
-    if($type == 'VMware::ESX'){
+    my $type = $self->{'actions'};
+    if($type eq 'VMware::ESX'){
         $heap->{'actions'} = [ 
                                "wc:disable_monitoring",        # supress monitoring for the host
                                "sp:shutdown",                  # power off the node
@@ -131,37 +114,39 @@ sub redeploy {
                                "wc:wait_for_ssh",              # wait until ssh is available 
                                "wc:post_config",               # log in and do any post configuration
                                "wc:inspect_config",            # poke around and make sure everything looks good
-                               "wc:cleanup"                    # remove any temp files 
+                               "wc:cleanup",                   # remove any temp files 
                                "wc:enable_monitoring",         # re-enable monitoring for the host
                              ];
     }
-    if($type == 'Linode'){
+    if($type eq 'Linode'){
         $heap->{'actions'} = [ 
+#                               "wc:determine_locks",           # abort if the node is owned by anyone other than the requestor
                                "wc:disable_monitoring",        # supress monitoring for the host
                                "sp:shutdown",                  # power off the node
                                "sp:destroy",                   # delete the node from disk
-                               "wc:clean_keys",                # remove existing trusted keys
+#                               "wc:clean_keys",                # remove existing trusted keys
+                               "sp:randpass",                  # add a random password to the clipboard
+                               "sp:sshpubkey",                 # add the ssh pubkey to be used to the clipboard
                                "sp:deploy",                    # deploy new node
-                               "sp:get_pub_ip",                # query the API for the remote public IP
+                               "sp:get_pub_ip",                # query the public IP and add it to the clipboard
                                "wc:stow_ip",                   # save the public IP in LDAP
+                               "wc:wait_for_ssh",              # wait until ssh is available 
                                "wc:ssh_keyscan",               # get the new ssh fingerprints
                                "wc:update_dns",                # update dns sshfp / a records
-                               "wc:wait_for_ssh",              # wait until ssh is available 
                                "wc:mount_opt",                 # log in and mount /opt, set /etc/fstab
                                "sp:set_kernel_pv_grub",        # set the kernel to boot pv_grub on the next boot
                                "wc:make_remote_dsa_keypair",   # generate a ssh-keypair for root
-                               "wc:ldap_host_record_update",   # update ou=Hosts with the new information
+                               "wc:host_record_updates",       # update ou=Hosts with the new information
                                "wc:save_ldap_secret",          # save the ldap secret if provided
-                               "wc:update_gitosis_key",        # update the root's key in gitosis (for app deployments)
-                               "wc:prime_hosts",               # download prime and run it (installs JeCM and puppet)
+                               "wc:gitosis_deployment_key",    # update the root's key in gitosis (for app deployments)
+                               "wc:prime_host",                # download prime and run it (installs JeCM and puppet)
                                "wc:wait_for_reboot",           # puppet will install a new kernel and reboot
-                               "wc:ping_until_up",             # wait for the box to come back online
                                "wc:wait_for_ssh",              # wait until ssh is available 
-                               "wc:inspect_puppet_logs",       # follow the puppet logs until they error out or complete
+#                               "wc:inspect_puppet_logs",       # follow the puppet logs until they error out or complete
                                "wc:enable_monitoring",         # re-enable monitoring for the host
                              ];
     }
-    if($type == 'EC2'){
+    if($type eq 'EC2'){
         $heap->{'actions'} = [ 
                                "wc:disable_monitoring",        # supress monitoring for the host
                                "sp:shutdown",                  # power off the node
@@ -197,10 +182,11 @@ sub next_item {
     my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     my $task = shift(@{ $heap->{'actions'} });
     if($task=~m/([^:]*):(.*)/){
-        print "$1->$2\n";
+        my ($module, $task) = ($1, $2);
+        print "$module->$task\n";
         $kernel->yield('do_nonblock',
                        sub { 
-                               $self->{$1}->$2($heap->{'clipboard'});
+                               $self->{$module}->$task($heap->{'clipboard'});
                            }
                       );
     }else{
@@ -243,13 +229,13 @@ sub on_child_stdout {
     my ($stdout_line, $wheel_id) = @_[ARG0, ARG1];
     my $child = $heap->{children_by_wid}{$wheel_id};
     $heap->{'child_output'}.="$stdout_line\n";
-    #print "pid ", $child->PID, " STDOUT: $stdout_line\n";
+    print "pid ", $child->PID, " STDOUT: $stdout_line\n";
 }
 
 # Wheel event, including the wheel's ID.
 sub on_child_stderr {
     my ($self, $kernel, $heap, $sender, $stderr_line, $wheel_id) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
-    my $child = $eap->{children_by_wid}{$wheel_id};
+    my $child = $heap->{children_by_wid}{$wheel_id};
     print "pid ", $child->PID, " STDERR: $stderr_line\n" unless($stderr_line=~m/SSL_connect/);
 }
 
@@ -270,12 +256,17 @@ sub on_child_close {
         # FIXME this should be done on a private set of filehandles, not on STDOUT
         my $replacement_clipboard;
         eval { $replacement_clipboard = YAML::Load("$heap->{'child_output'}\n"); };
-        if( $ $@){
+        if(! $@){
             $heap->{'clipboard'} = $replacement_clipboard;
+           print "--------------------\nNew Clipboard:\n--------------------\n$heap->{'child_output'}\n--------------------\n";
         }else{
             # stop all remaining tasks if something printed out to STDOUT that wasn't YAML
             print STDERR "Non-YAML STDOUT found. Aborting work thread.\n";
+            print STDERR "################################################################################\n";
+            print STDERR "$@\n";
+            print STDERR "################################################################################\n";
             print STDERR "$heap->{'child_output'}\n";
+            print STDERR "################################################################################\n";
             $heap->{'actions'} = undef;
         }
         $heap->{'child_output'} = undef;

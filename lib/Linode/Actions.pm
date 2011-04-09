@@ -1,4 +1,4 @@
-package Linode::API;
+package Linode::Actions;
 use warnings; 
 use strict;
 use Carp;
@@ -7,46 +7,62 @@ use FileHandle;
 use JSON;
 use LWP::UserAgent;
 use YAML;
+use WebService::Linode;  # FIXME rewrite all functions to use WebService::Linode
 
 sub new{
     my $class = shift;
     my $self  = {};
     bless $self;
-    my $construct = shift if @_;
-    $self->{'cfg'}->{'credentialed'}=0;
+    my $cnstr = shift if @_;
+    $self->{'username'} = $cnstr->{'username'} if $cnstr->{'username'};
+    $self->{'password'} = $cnstr->{'password'} if $cnstr->{'password'};
+    $self->{'api_key'} = $cnstr->{'api_key'} if $cnstr->{'api_key'};
+    return $self;
+}
+
+sub api_key_valid{
+    my $self = shift;
     $self->{'ua'} = LWP::UserAgent->new;
     $self->{'ua'}->agent("Linode::API/2.0");
-    # set or get our api_key
-    if(! defined $construct->{'api_key'}){
-        if((! defined $construct->{'username'})||(! defined $construct->{'password'})){
-            $self->error("Credentials not passed to the constructor.");
-        }else{
-            my $response = $self->{'ua'}->get("https://api.linode.com/?api_action=user.getapikey".
-                                              "&username=$construct->{'username'}".
-                                              "&password=$construct->{'password'}".
-                                              "&api_responseFormat=JSON");
-            my $json = from_json($response->content);
-            if(defined $json->{'DATA'}->{'API_KEY'}){
-                $self->{'api_key'}=$json->{'DATA'}->{'API_KEY'};
-            }
-        }
-    }else{
-        $self->{'api_key'} = $construct->{'api_key'};
-    }
     # validate the api_key with a connection to test.echo
-    my $response = $self->{'ua'}->get("https://api.linode.com/?api_key=$self->{'api_key'}".
+    my $response = $self->{'ua'}->get("https://api.linode.com/?api_key=".$self->api_key().
                                       "&api_action=test.echo".
                                       "&key=value".
                                       "&api_responseFormat=JSON");
     my $json = from_json($response->content);
     if(defined $json->{'DATA'}->{'key'}){
         if($json->{'DATA'}->{'key'} eq "value"){
-            $self->{'cfg'}->{'credentialed'}=1;
             return $self;
         }else{
             return undef;
         }
     }
+}
+
+sub api_key(){
+    my $self = shift;
+    return $self->{'api_key'} if $self->{'api_key'};
+
+    $self->{'ua'} = LWP::UserAgent->new;
+    $self->{'ua'}->agent("Linode::API/2.0");
+    # set or get our api_key
+    if(! defined $self->{'api_key'}){
+        if((! defined $self->{'username'})||(! defined $self->{'password'})){
+            $self->error("Credentials not passed to the constructor.");
+            return undef;
+        }else{
+            my $response = $self->{'ua'}->get("https://api.linode.com/?api_action=user.getapikey".
+                                              "&username=$self->{'username'}".
+                                              "&password=$self->{'password'}".
+                                              "&api_responseFormat=JSON");
+            my $json = from_json($response->content);
+            if(defined $json->{'DATA'}->{'API_KEY'}){
+                $self->{'api_key'}=$json->{'DATA'}->{'API_KEY'};
+            }
+        }
+        return $self->{'api_key'} if $self->api_key_valid();
+    }
+    return $self->{'api_key'};
 }
 
 sub error{
@@ -60,7 +76,7 @@ sub do_api($$){
     my $method = shift if @_;
     my $parameters = shift if @_;
     print STDERR "  doing: $method\n";
-    my $form = [ "api_key" => $self->{'api_key'}, "api_action" => $method ];
+    my $form = [ "api_key" => $self->api_key(), "api_action" => $method ];
     foreach my $p (keys(%{ $parameters })){
         push (@{ $form }, $p => $parameters->{$p});
     } 
@@ -86,7 +102,7 @@ sub do_api_get($$){
     my $parameters = shift if @_;
     print STDERR "  doing: $method\n";
     my $req = HTTP::Request->new(POST => 'https://api.linode.com/');
-    my $url="https://api.linode.com/?api_key=$self->{'api_key'}";
+    my $url="https://api.linode.com/?api_key=".$self->api_key();
     $url.="&api_action=$method";
     foreach my $p (keys(%{ $parameters })){
         $url.="&$p=$parameters->{$p}";
@@ -164,8 +180,15 @@ sub id{
 }
 
 sub shutdown{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->_shutdown($cb->{'hostname'});
+}
+
+sub _shutdown{
     my $self=shift;
     my $label=shift if @_;
+    return unless $self->is_running($label);
     print STDERR "Shutting down $label.\n";
     return undef unless defined $label;
     my $data = $self->do_api( 'linode.shutdown', { 'LinodeID' => $self->id($label) });
@@ -173,10 +196,17 @@ sub shutdown{
     return 1;
 }
 
-sub boot{
+sub boot{ 
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->_boot($cb->{'hostname'});
+}
+
+sub _boot{
     my $self=shift;
     my $label=shift if @_;
     return undef unless defined $label;
+    return undef if $self->is_running($label);
     print STDERR "Powering up $label.\n";
     my $data = $self->do_api( 'linode.boot', { 'LinodeID' => $self->id($label) });
     if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
@@ -205,6 +235,13 @@ sub first_config_id{
    return undef;
 }
 
+sub destroy{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->delete_configs($cb->{'hostname'});
+    $self->delete_all_disks($cb->{'hostname'});
+    return $self;
+}
 
 sub list_disks{
     my $self=shift;
@@ -288,6 +325,13 @@ sub disk_id{
     return undef;
 }
 
+sub set_kernel_pv_grub{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->pv_grub($cb->{'hostname'});
+    return $self;
+}
+
 sub pv_grub{
     my $self=shift;
     my $label = shift if @_;
@@ -302,10 +346,18 @@ sub pv_grub{
     return $self;
 }
 
+sub deploy{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->{'root_password'} = $cb->{'password'} if $cb->{'password'};
+    $self->{'ssh_pubkey'} = $cb->{'ssh_pubkey'} if $cb->{'ssh_pubkey'};
+    $self->deploy_instance($cb->{'hostname'}, $cb->{'guestid'});
+}
+
 sub deploy_instance{
     my $self=shift;
     my $label=shift if @_;
-    my $distribution=shift||"Debian 5.0";
+    my $distribution=shift||"Debian 6";
     my $total_disk=0;
     my $data;
     return undef unless defined $label;
@@ -385,10 +437,27 @@ sub setsecret{
      }
      return $self->{'root_password'};
 }
+
+sub randpass {
+    my $self=shift;
+    my $cb = shift if @_;
+    $cb->{'password'} = $self->setsecret();
+    print YAML::Dump($cb);
+}
  
 sub get_root_passwd {
     my $self=shift;
     return $self->{'root_password'};
+}
+
+sub sshpubkey{
+    my $self=shift;
+    my $cb = shift if @_;
+    if(defined($cb->{'sshpubkeyfile'})){
+        $self->ssh_pubkey($cb->{'sshpubkeyfile'});
+        $cb->{'ssh_pubkey'} = $self->{'ssh_pubkey'};
+        print YAML::Dump($cb);
+    }
 }
 
 sub ssh_pubkey{
@@ -407,6 +476,13 @@ sub ssh_pubkey{
         print STDERR "Please create an $keyfile\n";
     }
 
+}
+
+sub get_pub_ip{
+    my $self=shift;
+    my $cb = shift if @_;
+    $cb->{'ipaddress'} = $self->get_remote_pub_ip($cb->{'hostname'});
+    print YAML::Dump($cb);
 }
 
 sub get_remote_pub_ip{
