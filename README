@@ -1,3 +1,12 @@
+The documentation here is a mess. This project is basically a scratch-pad for my thoughts
+on host deployment.
+
+The end-goal is to have an IRC/Jabber bot that can deploy vmware, linode, or ec2 instances
+for me based on a yaml file or on the contents of an LDAP directory.
+
+################################################################################
+# Thinking out loud...
+
 An automated (and non-blocking) system for deploying: 
     bare-metal via PXE
     vmware esx virtual machines from pxe or by template
