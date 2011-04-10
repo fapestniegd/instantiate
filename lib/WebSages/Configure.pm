@@ -43,36 +43,13 @@ sub enable_monitoring{
     return $self;
 }
 
-sub stow_ip{
-    my $self = shift;
-    my $cb = shift if @_;
-    if($cb){
-       $self->setip($cb->{'ipaddress'}->[0]);
-    }
-    return $self;
-}
-
-sub setip{
-    my $self = shift;
-    my $ipaddress=shift if @_;
-    if($ipaddress =~m/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/){
-        $self->{'ipaddress'} = $1;
-    }else{
-        $self->{'ipaddress'} = undef;
-    }
-    # or you'll configure your workstation, ask me how I know...
-    if($ipaddress =~m/0.0.0.0/){
-        $self->{'ipaddress'} = undef;
-    }
-    return $self->{'ipaddress'};
-}
-
 sub rexec{
     my $self = shift;
     my $remote_command = shift if @_;
     #eval { 
     #       local $SIG{__WARN__} = sub {}; 
     #       local *STDERR;
+           print STDERR qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} "$remote_command\n");
            system qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} "$remote_command");
            print SDTERR "$!\n$?\n";
     #     };
@@ -118,16 +95,11 @@ sub restore_known_hosts{
     return $self;
 }
 
-sub ssh_keyscan{
-    my $self = shift;
-    my $cb = shift if @_;
-    $self->get_remote_hostkey();
-    $cb->{'sshfp'} = $self->{'sshfp'};
-    print YAML::Dump($cb);
-}
 
 sub get_remote_hostkey{
     my $self = shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     # wait for ssh to become available and get it's ssh-key so it won't ask
     system qq(ssh-keyscan $self->{'ipaddress'} > $self->{'known_hosts'});
     while( -z "$self->{'known_hosts'}" ){
@@ -142,18 +114,21 @@ sub get_remote_hostkey{
             chomp($sshfprecord);
             # remove the cruft
             $sshfprecord=~s/^\S+\s+[Ii][Nn]\s+[Ss][Ss][Hh][Ff][Pp]\s+//;
-            push(@{ $self->{'sshfp'} }, $sshfprecord);
+            push(@{ $cb->{'sshfp'} }, $sshfprecord);
         }
         close(SSHFP);
     }else{
         print STDERR "no /usr/bin/sshfp found. skipping sshfp DNS record\n";
     }
+    print YAML::Dump($cb);
     return $self;
 }
 
 # this should be a puppet class
 sub mount_opt{
     my $self = shift;
+    my $cb = shift;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     # mount the opt disk
     $self->rexec("/bin/grep -q /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
     $self->rexec("/bin/grep -q ' /opt ' /etc/mtab || /bin/mount -a");
@@ -163,21 +138,16 @@ sub mount_opt{
 sub prime_host{
     my $self = shift;
     my $cb = shift if @_;
-    $self->_prime_host($self->get_ldap_secret() ); 
-}
-
-sub _prime_host{
-    my $self = shift;
-    my $LDAPSECRET_TAINT = shift if @_; # heh, taint
-    my $LDAPSECRET;
-    if($LDAPSECRET_TAINT=~m/(.*)/){ $LDAPSECRET=$1; }
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'fqdn'} = $cb->{'fqdn'};
+    $self->{'ldap_secret'} = $cb->{'password'};
     # fetch prime and fire it off
     $self->rexec("/usr/bin/wget --no-check-certificate -qO /root/prime https://github.com/fapestniegd/prime/raw/master/prime");
     $self->rexec("/bin/chmod 755 /root/prime");
     my $got_init=0;
     my $count=0;
     while((! $got_init)&&($count < 5)){
-        $self->rexec("/root/prime $self->{'fqdn'} $LDAPSECRET > /var/log/prime-init.log 2>\&1 \&");
+        $self->rexec("/root/prime $self->{'fqdn'} $self->{'ldap_secret'} > /var/log/prime-init.log 2>\&1 \&");
         $count++;
         print STDERR "Verifying initialization, (try: $count);\n";
         open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} ls -l /var/log/prime-init.log 2>/dev/null |");
@@ -189,35 +159,10 @@ sub _prime_host{
     return $self;
 }
 
-# this initializes the first git checkout from github and first puppet run
-# this has been depricated in favor of prime
-sub wcyd_init{
-    my $self = shift;
-    my $LDAPSECRET_TAINT = shift if @_; # heh, taint
-    my $LDAPSECRET;
-    if($LDAPSECRET_TAINT=~m/(.*)/){
-        $LDAPSECRET=$1;
-    }
-    # fire off wcyd
-    $self->rexec("/usr/bin/wget --no-check-certificate -qO /root/wcyd https://github.com/fapestniegd/superstring/raw/master/strings/scripts/wcyd");
-    $self->rexec("/bin/chmod 755 /root/wcyd");
-    my $got_init=0;
-    my $count=0;
-    while((! $got_init)&&($count < 5)){
-        $self->rexec("/root/wcyd $self->{'fqdn'} $LDAPSECRET > /var/log/wcyd-init.log 2>\&1 \&");
-        $count++;
-        print STDERR "Verifying initialization, (try: $count);\n";
-        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} ls -l /var/log/wcyd-init.log 2>/dev/null |");
-        chomp(my $initlog=<SSH>); 
-        $got_init=1 if($initlog);
-        sleep 3 unless $got_init;
-        close(SSH);
-    }
-    return $self;
-}
-
 sub make_remote_dsa_keypair{
     my $self = shift;
+    my $cb = shift;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     print STDERR "Making remote dsa keypair\n";
     # regenerate a dsa public key (if there isn't one?)
     $self->rexec("if [ ! -f /root/.ssh/id_dsa.pub ];then /usr/bin/ssh-keygen -t dsa -N '' -C \"root\@\$(hostname -f)\" -f /root/.ssh/id_dsa>/dev/null 2>&1;fi");
@@ -227,6 +172,9 @@ sub make_remote_dsa_keypair{
 # Save the new LDAP secret on the host
 sub save_ldap_secret{
     my $self = shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'secret'} = $cb->{'password'};
     # save the deployment ldap_secret to the host's /etc/ldap/ldap.conf
     $self->rexec("if [ ! -d /etc/ldap ]; then /bin/mkdir -p /etc/ldap; fi");
     $self->rexec("umask 377 && echo $self->{'secret'} > /etc/ldap/ldap.secret");
@@ -235,6 +183,8 @@ sub save_ldap_secret{
 
 sub get_ldap_secret{
     my $self = shift;
+    my $cb = shift;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     # save the deployment ldap_secret to the host's /etc/ldap/ldap.conf
     open(CMD,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} \'cat /etc/ldap/ldap.secret\'|");
     my $secret=<CMD>;
@@ -245,6 +195,8 @@ sub get_ldap_secret{
 
 sub get_remote_dsa_pubkey{
     my $self = shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     my ($ssh_key, $newkey);
     open PUBKEY, qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} root\@$self->{'ipaddress'} 'if [ -f /root/.ssh/id_dsa.pub ]; then /bin/cat /root/.ssh/id_dsa.pub ;fi'|)
         ||warn "could not open ssh for read";
@@ -253,14 +205,15 @@ sub get_remote_dsa_pubkey{
         if($ssh_key=~m/^ssh-dss/){ $newkey=$ssh_key; }
     }
     close(PUBKEY);
-    $self->{'remote_ssh_pubkey'}=$newkey;
+    $cb->{'remote_ssh_pubkey'}=$newkey;
+    print YAML::Dump($cb);
     return $self->{'remote_ssh_pubkey'};
 }
 
 sub gitosis_deployment_key{
     my $self = shift;
     my $cb = shift if @_;
-    $self->add_gitosis_deployment_pubkey( $cb->{'ssh_pubkey'}, $cb->{'gitosis-admin'} );
+    $self->add_gitosis_deployment_pubkey( $cb->{'remote_ssh_pubkey'}, $cb->{'gitosis-admin'} );
 }
 
 sub add_gitosis_deployment_pubkey{
@@ -306,11 +259,6 @@ use File::Temp qw/ tempdir /;
         }
         close(GITCONF);
     }
-        print STDERR "----------------------------------------\n";
-        print STDERR "\n";
-        print STDERR "$git_remote\n";
-        print STDERR "\n";
-        print STDERR "----------------------------------------\n";
     my $modified=0;
     if(-f "$self->{'gitosis_base'}/gitosis-admin/gitosis.conf"){
         print STDERR "Updating gitosis.conf [group deployments]\n"; 
@@ -407,10 +355,11 @@ use Net::DNS;
 # Update LDAP with the new information from the host
 sub host_record_updates{
     my $self = shift;
-    my $construct = shift if @_;
+    my $cb = shift if @_;
     print STDERR "Updating: cn=$self->{'hostname'},ou=Hosts,$self->{'basedn'}\n";
+    my $userPassword = $self->ssha( $cb->{'password'} );
     my ($servers,$mesg);
-    $servers = [ $construct->{'server'} ] if $construct->{'server'};
+    $servers = [ $cb->{'server'} ] if $cb->{'server'};
     $servers = $self->find_ldap_servers() unless $servers;
     my $existing_entry=$self->get_host_record();
     while($server=shift(@{$servers})){
@@ -429,15 +378,16 @@ sub host_record_updates{
                                    "cn=$self->{'hostname'},ou=Hosts,$self->{'basedn'}", 
                                    'changes' => [ 
                                                   'replace' => [ 
-                                                                 'userPassword' => $self->{'userPassword'},
-                                                                 'ipHostNumber' => $self->{'ipaddress'}
+                                                                 'userPassword' => $userPassword,
+                                                                 'ipHostNumber' => $cb->{'ipaddress'}
                                                                ] 
                                                 ] 
                                  );
             if(($mesg->code == 10) && ($mesg->error eq "Referral received")){
                 foreach my $ref (@{ $mesg->{'referral'} }){
                     if($ref=~m/(ldap.*:.*)\/.*/){
-                        $self->update_host_record({ 'server'=> $ref });
+                        $cb->{'server'} = $ref;
+                        $self->host_record_updates($cb);
                     }
                 }
             }else{
@@ -455,13 +405,13 @@ sub host_record_updates{
                                                                'simpleSecurityObject'
                                                              ],
                                             'userpassword' => [
-                                                                $wc->{'userPassword'}
+                                                                $userPassword,
                                                               ],
                                             'cn' => [
-                                                      $self->{'hostname'}
+                                                      $cb->{'hostname'}
                                                     ],
                                             'iphostnumber' => [
-                                                                $self->{'ipaddress'}
+                                                                $cb->{'ipaddress'}
                                                               ]
                                           ] 
                               );
@@ -506,16 +456,6 @@ use Net::LDAP;
         }
     }
     return undef;
-}
-
-sub update_dns{
-    my $self = shift;
-    my $cb = shift if @_;
-    print STDERR "Getting DNS entry\n" if($debug > 0);
-    my $dns_entry = $self->get_dns_record($cb->{'fqdn'});
-    $dns_entry->replace ( 'aRecord'     => $cb->{'ipaddress'}, 'sSHFPRecord' => $cb->{'sshfp'} );
-    print STDERR "Updating LDAP entry\n" if($debug > 0);
-    $self->update_ldap_entry({ 'entry' => $dns_entry });
 }
 
 sub get_dns_record{
@@ -614,6 +554,27 @@ use MIME::Base64;
     return $self->{'secret'};
 }
 
+sub ssha{
+    my $self = shift;
+    my $plaintext = shift if @_;
+    my ($salt,$userPassword);
+    my $_rand;
+    if (!$salt_length) { $salt_length = 4; }
+    my @chars = split(" ", "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z - _ % # | 0 1 2 3 4 5 6 7 8 9");
+    srand;
+    for (my $i=0; $i <= $salt_length ;$i++) {
+        $_rand = int(rand 41);
+        $salt .= $chars[$_rand];
+    }
+
+    my $ctx = Digest::SHA1->new;
+    $ctx->add($plaintext); 
+    $ctx->add($salt);
+    $userPassword = '{SSHA}' . encode_base64($ctx->digest . $salt ,'');
+    print STDERR "\n\n\n$plaintext :: $salt :: $userPassword\n\n\n";
+    return $userPassword;
+}
+
 sub configure_remote_host{
     my $self = shift;
     # get ip should this go here or elsewhere?
@@ -631,15 +592,25 @@ sub configure_remote_host{
     return $self;
 }
 
+sub update_dns{
+    my $self = shift;
+    my $cb = shift if @_;
+    print STDERR "Getting DNS entry\n" if($debug > 0);
+    my $dns_entry = $self->get_dns_record($cb->{'fqdn'});
+    $dns_entry->replace ( 'aRecord'     => $cb->{'ipaddress'}, 'sSHFPRecord' => $cb->{'sshfp'} );
+    print STDERR "Updating LDAP entry\n" if($debug > 0);
+    $self->update_ldap_entry({ 'entry' => $dns_entry });
+}
+
 # Update LDAP
 sub update_ldap_entry{
     my $self = shift;
-    my $construct = shift if @_;
-    my $entry = $construct->{'entry'} if $construct->{'entry'};
+    my $cb = shift if @_;
+    my $entry = $cb->{'entry'} if $cb->{'entry'};
     return undef unless $entry;
     print STDERR "Updating: ".$entry->{'asn'}->{'objectName'}."\n";
     my ($servers,$mesg);
-    $servers = [ $construct->{'server'} ] if $construct->{'server'};
+    $servers = [ $cb->{'server'} ] if $cb->{'server'};
     $servers = $self->find_ldap_servers() unless $servers;
     while($server=shift(@{$servers})){
         if($server=~m/(.*)/){ $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/); }
@@ -655,7 +626,9 @@ sub update_ldap_entry{
             if(($mesg->code == 10) && ($mesg->error eq "Referral received")){
                 foreach my $ref (@{ $mesg->{'referral'} }){
                     if($ref=~m/(ldap.*:.*)\/.*/){
-                        $self->update_ldap_entry({ 'server'=> $ref, 'entry'=> $entry });
+                        $cb->{'server'} = $ref;
+                        $cb->{'entry'} = $entry;
+                        $self->update_ldap_entry($cb);
                     }
                 }
             }else{
@@ -665,7 +638,9 @@ sub update_ldap_entry{
             if(($mesg->code == 10) && ($mesg->error eq "Referral received")){
                 foreach my $ref (@{ $mesg->{'referral'} }){
                     if($ref=~m/(ldap.*:.*)\/.*/){
-                        $self->update_ldap_entry({ 'server'=> $ref, 'entry'=> $entry });
+                        $cb->{'server'} = $ref;
+                        $cb->{'entry'} = $entry;
+                        $self->update_ldap_entry($cb);
                     }
                 }
             }else{
@@ -676,7 +651,9 @@ sub update_ldap_entry{
         }elsif(($mesg->code == 10) && ($mesg->error eq "Referral received")){
                 foreach my $ref (@{ $mesg->{'referral'} }){
                     if($ref=~m/(ldap.*:.*)\/.*/){
-                        $self->update_ldap_entry({ 'server'=> $ref, 'entry'=> $entry });
+                        $cb->{'server'} = $ref;
+                        $cb->{'entry'} = $entry;
+                        $self->update_ldap_entry($cb);
                     }
                 }
         }else{
@@ -684,13 +661,15 @@ sub update_ldap_entry{
         }
           
     }
-    print STDERR "Done updating".$entry->{'asn'}->{'objectName'}."\n";
+    print STDERR "Done updating ".$entry->{'asn'}->{'objectName'}."\n";
     return $self;
 }
 
 # use the ipaddress here or it will cache in DNS
 sub wait_for_ssh{
     my $self=shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
     my $hostname;
     my $count=0;
     my $got_hostname=0;
@@ -713,14 +692,36 @@ sub wait_for_reboot{
     my $self = shift;
     my $cb = shift if @_;
     my $p = Net::Ping->new();
-    while($p->ping( $cb->{'ipaddress'}->[0] ) ){
+    while( $p->ping( $cb->{'ipaddress'}->[0] ) ){
         print STDERR "$cb->{'ipaddress'}->[0] is still up. Waiting for down.\n";
-        sleep 5;
+        sleep 3;
     }
-    while(! $p->ping($cb->{'ipaddress'}->[0]) ){
+    $p->close();
+    sleep 10;
+    $p = Net::Ping->new();
+    until( $p->ping($cb->{'ipaddress'}->[0]) ){
         print STDERR "$cb->{'ipaddress'}->[0] is still down. Waiting for up.\n";
-        sleep 5;
+        sleep 3;
     }
+    $p->close();
+    return $self;
+}
+
+sub tail_prime_init_log{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    # wait for ssh to become available and get it's ssh-key so it won't ask
+    open(SSH,"/usr/bin/ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} /usr/bin/tail -f /var/log/prime-init.log|");
+        while(my $log_line=<SSH>){
+            chomp($log_line);
+            if($log_line=~/prime exit was (.*)/){
+                my $exit=$1;
+                print STDERR "prime exited with $exit\n";
+                return $exit;
+            }
+        }
+    close(SSH);
     return $self;
 }
 

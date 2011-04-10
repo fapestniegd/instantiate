@@ -130,6 +130,8 @@ sub waitforjob{
     my $self=shift;
     my $linode_id=shift if @_;
     my $job_id=shift if @_;
+    my $delay=shift if @_;
+    $delay = 5 unless $delay;
     my $complete=0;
     while(!$complete){
         # return one job on host
@@ -142,7 +144,7 @@ sub waitforjob{
                       print STDERR "$job->{'HOST_MESSAGE'}\n";
                       return undef;
                  }else{
-                     sleep 5;
+                     sleep $delay;
                 }
             }
         }
@@ -192,7 +194,7 @@ sub _shutdown{
     print STDERR "Shutting down $label.\n";
     return undef unless defined $label;
     my $data = $self->do_api( 'linode.shutdown', { 'LinodeID' => $self->id($label) });
-    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},15); }
     return 1;
 }
 
@@ -209,7 +211,7 @@ sub _boot{
     return undef if $self->is_running($label);
     print STDERR "Powering up $label.\n";
     my $data = $self->do_api( 'linode.boot', { 'LinodeID' => $self->id($label) });
-    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},15); }
     return 1;
 }
 
@@ -272,7 +274,7 @@ sub delete_all_disks{
     my $disks = $self->list_disks($label);
     foreach my $disk ( @{ $disks }){
         my $data=$self->do_api('linode.disk.delete', { 'LinodeID' => $self->id($label), 'DiskID' => $disk->{'DISKID'} });
-        if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+        if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},5); }
     }
     return $self;
 }
@@ -378,7 +380,7 @@ sub deploy_instance{
         $disthash->{'rootSSHKey'} = $self->{'ssh_pubkey'}; 
     }
     $data=$self->do_api( 'linode.disk.createfromdistribution', $disthash);
-    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},10); }
     print STDERR "Creating $label-swap\n";
     $data=$self->do_api(
                          'linode.disk.create', 
@@ -389,7 +391,7 @@ sub deploy_instance{
                            'Size'           => 512,
                          }
                        );
-    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},10); }
     print STDERR "Creating $label-opt\n";
     $data=$self->do_api(
                          'linode.disk.create', 
@@ -400,7 +402,7 @@ sub deploy_instance{
                            'Size'           => $total_disk - (4096+512),
                          }
                        );
-    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+    if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},10); }
     print STDERR "Creating $label Config\n";
     $data=$self->do_api(
                          'linode.config.create', 
@@ -417,7 +419,7 @@ sub deploy_instance{
     # Make sure we have the latest data.
     if(defined $data->{'ConfigID'}){
         my $data = $self->do_api( 'linode.boot', { 'LinodeID' => $self->id($label), 'ConfigID' =>  $data->{'ConfigID'} });
-        if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'}); }
+        if(defined $data){ $self->waitforjob($self->id($label), $data->{'JobID'},10); }
     }
     return $self;
 }

@@ -120,29 +120,31 @@ sub redeploy {
     }
     if($type eq 'Linode'){
         $heap->{'actions'} = [ 
-#                               "wc:determine_locks",           # abort if the node is owned by anyone other than the requestor
+                               #"wc:determine_locks",           # abort if the node is owned by anyone other than the requestor
+                               #"wc:relocate_services"          # move services that make this a primary node to a failover node
                                "wc:disable_monitoring",        # supress monitoring for the host
                                "sp:shutdown",                  # power off the node
                                "sp:destroy",                   # delete the node from disk
-#                               "wc:clean_keys",                # remove existing trusted keys
                                "sp:randpass",                  # add a random password to the clipboard
                                "sp:sshpubkey",                 # add the ssh pubkey to be used to the clipboard
                                "sp:deploy",                    # deploy new node
                                "sp:get_pub_ip",                # query the public IP and add it to the clipboard
-                               "wc:stow_ip",                   # save the public IP in LDAP
                                "wc:wait_for_ssh",              # wait until ssh is available 
-                               "wc:ssh_keyscan",               # get the new ssh fingerprints
+                               "wc:get_remote_hostkey",         # get the new ssh fingerprints
                                "wc:update_dns",                # update dns sshfp / a records
                                "wc:mount_opt",                 # log in and mount /opt, set /etc/fstab
                                "sp:set_kernel_pv_grub",        # set the kernel to boot pv_grub on the next boot
                                "wc:make_remote_dsa_keypair",   # generate a ssh-keypair for root
+                               "wc:get_remote_dsa_pubkey",     # put it on the clipboard
                                "wc:host_record_updates",       # update ou=Hosts with the new information
                                "wc:save_ldap_secret",          # save the ldap secret if provided
                                "wc:gitosis_deployment_key",    # update the root's key in gitosis (for app deployments)
                                "wc:prime_host",                # download prime and run it (installs JeCM and puppet)
+                               "wc:tail_prime_init_log",       # tail the prime init log until it exits
+                               #"wc:prime-log",                # download prime and run it (installs JeCM and puppet)
                                "wc:wait_for_reboot",           # puppet will install a new kernel and reboot
-                               "wc:wait_for_ssh",              # wait until ssh is available 
-#                               "wc:inspect_puppet_logs",       # follow the puppet logs until they error out or complete
+                               #"wc:wait_for_ssh",              # wait until ssh is available 
+                               #"wc:inspect_puppet_logs",       # follow the puppet logs until they error out or complete
                                "wc:enable_monitoring",         # re-enable monitoring for the host
                              ];
     }
@@ -183,7 +185,11 @@ sub next_item {
     my $task = shift(@{ $heap->{'actions'} });
     if($task=~m/([^:]*):(.*)/){
         my ($module, $task) = ($1, $2);
+        for(my $i=0;$i<80;$i++){print '-';} 
+        print "\n";
         print "$module->$task\n";
+        for(my $i=0;$i<80;$i++){print '-';} 
+        print "\n";
         $kernel->yield('do_nonblock',
                        sub { 
                                $self->{$module}->$task($heap->{'clipboard'});
