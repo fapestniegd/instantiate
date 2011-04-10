@@ -1,59 +1,119 @@
-The documentation here is a mess. This project is basically a scratch-pad for my thoughts
-on host deployment.
+################################################################################
+The documentation here is a mess. This project is basically a scratch-pad for my 
+thoughts on host deployment.
 
-The end-goal is to have an IRC/Jabber bot that can deploy vmware, linode, or ec2 instances
-for me based on a yaml file or on the contents of an LDAP directory.
+The end-goal is to have an IRC/Jabber bot that can deploy vmware, linode, or ec2 
+instances for me based on a yaml file or on the contents of an LDAP directory.
 
 ################################################################################
-# Thinking out loud...
+Let's talk about deployments for a minute. There are a lot of frameworks out 
+there that will help you create an instance of a host. Some are template driven;
+Others will allow you to "kickstart" your own. But none of them are "code complete"
+What I mean is they'll deploy the host just fine, but the majority of the work
+in maintaining an infrastructure isn't spinning up a host at all. Here's a typical
+re-deployment on a linode (http://linode.com)
 
-An automated (and non-blocking) system for deploying: 
-    bare-metal via PXE
-    vmware esx virtual machines from pxe or by template
-    ec2 instances by template
-    linode instances by template
-and just enough config management (jecm) to bootstrap puppet or cfengine3
+ * [???] Determine if the node is in production 
+ * [???] If so, migrate production services to another node, update pointers to the service
+ * [???] Supress montoring of the host
+ * [API] Power off the node
+ * [API] Delete the node from disk
+ * [???] Create a new root password and/or get your keypair ready
+ * [API] Deploy a new linode from a template
+ * [API] Get the IP of the new node
+ * [???] Wait until SSH comes up, get the new ssh fingerprints
+ * [???] Update DNS with the new SSFP / A records
+ * [???] Perform any filesystem mounts that the node needs (and update /etc/fstab)
+ * [???] Upgrade the kernel (if needed)
+ * [API] Set the kernel to boot pv_grub on the next boot (if kernel upgraded)
+ * [???] Generate a ssh-keypair for root
+ * [???] Update ou=Hosts in LDAP (or whatever you use for a CMDB) with the new host information
+ * [???] Update the root's key in gitosis or github (for app deployments)
+ * [???] Install puppet/chef/whatever you use for actual config management
+ * [???] Run your configuration management system
+ * [???] Re-enable monitoring for the host
+
+Things most APIs do well are noted with the [API] tag. Things that are done manually 
+(or are not done at all) are given the [???] tag. For new deployments, you can just
+start at the sixth step. There are still a great many holes to fill. (twss)
+
+Filling those holes is what I'm trying to achieve.
 
 ################################################################################
-# Install
+Why POE? Why Perl? Why not the new hotness I like instead? Why do you suck so bad?
 
-Validate that: (if type != vmware, and we don't control IP assigment, skip this)
-  1) The displayname is a fully-qualified-domain-name
-  2) The fully-qualified-domain-name has an A record in DNS
-  3) The A record has a PTR Record
-  /* ( Ideally it would grab an available one and add the A & PTR) */
+Well, I already have a lot of investment in POE IRC/Jabber bots, and all these people
+who tell me that their way is the "one true way" never seem to have a functioning example
+of what the "better way" looks like. To quote Linus Torvalds, "Talk is cheap, show me the code."
+Get me a functional example and we'll talk.
 
-Ensure that:
-  4) The host is in ou=Hosts (add if necessary)
-  5) Set the userPassword on the SimpleSecurity ObjectClass of the host
-  6) The host is in cn=DHCP  (add if necessary)
-  7) The host is in (cn=*, ou=Operating Systems,...) (prompt OS Type if not)
 
-Once Valid, Deploy VM in virtualcenter
-Get MAC address
-update CN=DHCP with mac address, filename, server
-set filename = pxelinux.install
+################################################################################
+I wanted a non-blocking way to order work, where the work progress could be queried 
+along the way. The general concept would be you put the "design" of the system somewhere,
+say, in LDAP or in YAML in a gist.
 
-# set up pxe for the install
-wget http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi
-    template out install_<hostname> based on what ou=distribution the host is in
-    (template out kickstart, unattended, the same way)
+cat<<EOF|gist 
+instance: 
+  hostname: loki
+  fqdn: loki.websages.com
+  provider: Linode
+  guestid: Debian 6
+  datacenter: Atlanta
+  size: 512
+  gitosis-admin: 'gitosis@freyr.websages.com:gitosis-admin.git
+  sshpubkey: ssh-dss AAAAB3NzaC1kc3MAAACBALa6xIb9VqCmop2II9/ni4DEo5X5X7MAV9L/GhoF159lIxCReFwXXxYOp9xGcQd68JMT34H2lbYEy6VNCZVJ46CVXKM0TBZdVYJuDjFAjA0yJLBpsA45VNOgf/ft52XYXMSZEyyUfLu6KrnFZtjiRD5gl0XNS7+dV4sCEYbpoLbnAAAAFQDNWh7gRkE6sfQaWJfPbHcDGYtiiQAAAIBMFD0hicjTyCjzbOLt0SUgY+OdFQEM9FKysdf4NsMM1+wlzw6U5vd7/QlNY50ythzw0YgK1DfHfkmIQT+frvDLX4Rl4th0mS92txaUUdmu49SEy3jEsbrplr5f/PkMOrzG8L5aE1OgXE77XHjejmXdVYcvPxc2inSRdD0l27lOkwAAAIAXljxAemz71k+iEBbBqJhbtMz36ezBJLa9pedeMXdQ0cThpi7Z4kx4TAXUg9KK4jZXTxZSjM9FFRBDw7mRop2suSEJJaFgZOop0yFJevFkCSMKZeWCTNxw9sYq+0qSnRdqD+gt7p7Lq4Yd1DF8YqFx1zC6tFE5uD491icLHVuxug== whitejs@eir.websages.com
+EOF
+https://gist.github.com/912450
+and then log into irc and say:
 
-    if (filename == pxelinux.install in the LDAP entry)
-      point to install_<hostname>
-    else
-      point to main_menu
+"jarvis: deploy https://gist.github.com/912450" or "jarvis: deploy cn=loki" (in the LDAP case)
 
-Boot vm (it should pxe boot)
-ping VM until up (for N pings)
-set filename = pxelinux.localboot in DHCP entry
-ping until down
-ping VM until up
-If type != vmware, and we don't control IP assigment
-   grab the IP from the system, (update DNS A, PTR records)
-   using the userPassword, revoke any existing certificates, keypairs (cfengine)
-   generate private key & csr
-   using the userPassword sign csr with pkild
-   have host rotate out userPassword
-run cfengine||puppet
+and then the bot would start doing the work, and you could then say:
+
+"jarvis: status loki"
+
+and jarivis would tell you at what stage (of the stages above) was currently being worked on
+or jarvis would come back and tell you it failed, and at what stage, or tell you when the node
+was ready. 
+
+That's the whole concept.
+
+################################################################################
+The details: 
+
+Basically I thought about how large organizations (the eff'ed up ones) do all of
+this. They create a clipboard (or a virtual one, in the case of change request forms)
+and pass it around from person to person who all work in different, isolated work silos.
+The server team passes of the DNS change to the networking team, then they forget to tell
+the monitoring and backup teams, and the whole thing is just a mess... But I digress.
+
+So I've re-implented this structure (who just called "Conway's Law?") in a non-blocking 
+POE wraper (lib/POE/Component/Instantiate.pm) that basically just calls functions from the
+independent (and blocking) modules that actually do the work. (/lib/{Linode,EC2,VMware/ESX}/Actions.pm)
+this way, a blocking module may be written that does the work top-down, and then can be wrapped in
+the non-blocking wrapper after the fact. Basically, just get some perl deploying your nodes, 
+and we can make it bot-friendly after the fact.
+
+We take the initial data, and put it on our "clipboard." When a method needs called from the library
+that actually does work, we fork a child process from the method, and pass it the clipboard as an anonymous
+data struct argument. Note that this means the child can't return values that it actively changed to the parent.
+
+We fix this by *any* STDOUT that comes out of the function must be YAML, and it must be the entire clipboard.
+Any YAML STDOUT handed back to the parent will completely replace the clipboard handed to the next task in the 
+actions list on the heap.
+
+Then when the child process returns (with 0) Instantiate calls the next task on the heap in the same manner.
+
+We use a colon delimite moniker to allow for multiple sub modules $self->{$module}->$task($heap->{'clipboard'});
+
+so the tasks "linode:deploy" and "dnswizard:update_host" and "ldapworker:update_host_ou" could all be in the 
+task list, each corresponding to 3 separate worker modules. 
+
+(Think: how do I deploy clusters in a coordinated fashion across EC2/Linode/ESX in one pass?)
+
+
+################################################################################
+Now all of this is completely separate from configuration management on the host. We use  puppet for that. 
+
 

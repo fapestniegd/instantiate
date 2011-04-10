@@ -1,0 +1,59 @@
+The documentation here is a mess. This project is basically a scratch-pad for my thoughts
+on host deployment.
+
+The end-goal is to have an IRC/Jabber bot that can deploy vmware, linode, or ec2 instances
+for me based on a yaml file or on the contents of an LDAP directory.
+
+################################################################################
+# Thinking out loud...
+
+An automated (and non-blocking) system for deploying: 
+    bare-metal via PXE
+    vmware esx virtual machines from pxe or by template
+    ec2 instances by template
+    linode instances by template
+and just enough config management (jecm) to bootstrap puppet or cfengine3
+
+################################################################################
+# Install
+
+Validate that: (if type != vmware, and we don't control IP assigment, skip this)
+  1) The displayname is a fully-qualified-domain-name
+  2) The fully-qualified-domain-name has an A record in DNS
+  3) The A record has a PTR Record
+  /* ( Ideally it would grab an available one and add the A & PTR) */
+
+Ensure that:
+  4) The host is in ou=Hosts (add if necessary)
+  5) Set the userPassword on the SimpleSecurity ObjectClass of the host
+  6) The host is in cn=DHCP  (add if necessary)
+  7) The host is in (cn=*, ou=Operating Systems,...) (prompt OS Type if not)
+
+Once Valid, Deploy VM in virtualcenter
+Get MAC address
+update CN=DHCP with mac address, filename, server
+set filename = pxelinux.install
+
+# set up pxe for the install
+wget http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi
+    template out install_<hostname> based on what ou=distribution the host is in
+    (template out kickstart, unattended, the same way)
+
+    if (filename == pxelinux.install in the LDAP entry)
+      point to install_<hostname>
+    else
+      point to main_menu
+
+Boot vm (it should pxe boot)
+ping VM until up (for N pings)
+set filename = pxelinux.localboot in DHCP entry
+ping until down
+ping VM until up
+If type != vmware, and we don't control IP assigment
+   grab the IP from the system, (update DNS A, PTR records)
+   using the userPassword, revoke any existing certificates, keypairs (cfengine)
+   generate private key & csr
+   using the userPassword sign csr with pkild
+   have host rotate out userPassword
+run cfengine||puppet
+
