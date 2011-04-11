@@ -8,28 +8,54 @@ sub new{
     my $class = shift;
     my $construct = shift if @_;
     my $self  = {};
-    $self->{'fqdn'} = $construct->{'fqdn'} if $construct->{'fqdn'};
-    $self->{'hostname'} = $construct->{'fqdn'} if $construct->{'fqdn'};
-    $self->{'gitosis_base'} = $1 if($construct->{'gitosis_base'}=~m/(.*)/);
-    $self->{'hostname'} = $1 if($self->{'hostname'}=~m/([^\.]+)\..*/);
-    $self->{'domain'} = $construct->{'fqdn'} if $construct->{'fqdn'};
-    $self->{'domain'} = $2 if($self->{'domain'}=~m/([^\.]+)\.(.*)/);
-    $self->{'basedn'} = $self->{'domain'};
-    $self->{'basedn'}=~s/\./,dc=/g;
-    $self->{'basedn'}= "dc=".$self->{'basedn'};
-    $self->{'secret'} = $construct->{'secret'} if $construct->{'secret'};
-    $self->{'ipaddress'}=$construct->{'ipaddress'}||'0.0.0.0';
-    ($fh, $self->{'known_hosts'}) = tempfile();
-    bless $self;
-    if($self->{'secret'}){ $self->setsecret($self->{'secret'}); }
-    $self->{'group'} = $construct->{'groups'} if $construct->{'groups'};
-    if(!defined $self->{'fqdn'}){
-        $self->error("I need a fqdn.\n");
-        print $self->error();
+    ############################################################################
+    # Here we look at what was handed to us, and if it's "incomplete" we try
+    # to assume some "sane" defaults or look them up from the infrastructure.
+    ############################################################################
+    foreach my $item (
+                      "fqdn", "hostname", "domain", "secret",
+                      "gitosis_admin_uri", "gitosis_admin_dir", "ldap",
+                     ){
+         $self->{$item} = $construct->{$item} if $construct->{$item};
+    }
+    if(!defined $self->{'fqdn'}){ # a fqdn is mandatory
+        print STDERR "I need a fqdn.\n";
         return undef;
-    } # validate all $ENV and domain/hostname variables here or retrun undef # #
+    } 
+    # ldap may be handed to us directly or in an "ldap" hash
+    foreach my $ldap_item ( "uri","base_dn", "bind_dn", "password", "dhcp_basedn"){
+         $self->{$ldap_item} = $construct->{$ldap_item}||$construct->{'ldap'}->{$ldap_item};
+    }
+    delete $self->{'ldap'}; # no need to store it twice
+    unless ($self->{'hostname'}){ # extract the hostname from the fqdn
+        $self->{'hostname'} = $construct->{'fqdn'} if $construct->{'fqdn'};
+        $self->{'hostname'} = $1 if($self->{'hostname'}=~m/([^\.]+)\..*/);
+    }
+    unless ($self->{'domain'}){ # exttract the domain name from the fqdn
+        $self->{'domain'} = $construct->{'fqdn'} if $construct->{'fqdn'};
+        $self->{'domain'} = $2 if($self->{'domain'}=~m/([^\.]+)\.(.*)/);
+    }
+    unless ($self->{'basedn'}){ # exttract the basedn from the domain
+        $self->{'basedn'} = $self->{'domain'};
+        $self->{'basedn'}=~s/\./,dc=/g;
+        $self->{'basedn'}= "dc=".$self->{'basedn'};
+    }
+    unless ($self->{'ipaddress'}){ # look up the ipaddress from the fqdn
+       print STDERR "/* FIXME Add a DNS Lookup */\n";
+    }
+    # Create a temp file for our ssh operations:
+    # Known hosts errors are expected on redeployments.
+    ($fh, $self->{'known_hosts'}) = tempfile();
+
+    bless $self;
     return $self;
 }
+
+################################################################################
+# POE::Component::Instantiate wrappers (take one arg (the clipboard) and pass 
+# the clipboard back by printing YAML to STDOUT
+# In the next iteration, this should be a sub-class of the blocking class
+################################################################################
 
 sub disable_monitoring{
     my $self = shift;
@@ -42,6 +68,222 @@ sub enable_monitoring{
     print STDERR "You should really enable monitoring here.\n";
     return $self;
 }
+
+sub ldap_dhcp_local{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->ldap_dhcp_install($cb,0);
+}
+
+sub sleep_10{
+    my $self = shift;
+    my $cb = shift if @_;
+    sleep 10; 
+    exit 0;
+}
+
+sub ldap_dhcp_install{
+    my $self = shift;
+    my $cb = shift if @_;
+    my $install = shift if @_;
+    $install = 1 unless(defined($install));
+    my $filename = undef;
+    if($install == 0){ $filename="pxelinux.0"; }else{ $filename="pxelinux.install"; }
+    print STDERR "update cn=DHCP $filename\n";
+    my $entries = $self->get_ldap_entries({
+                                            'filter' => "(cn=$self->{'fqdn'})",
+                                            'base'   => $self->{'dhcp_basedn'},
+                                            'scope'  => 'sub',
+                                          });
+    my $entry;
+    if($entries){
+        my $new_macs;
+        foreach my $mac (@{ $cb->{'macaddrs'} }){
+            push (@{ $new_macs }, "ethernet ".$mac);
+        } 
+        if($#entries > 0){
+            foreach $entry (@{ $entries }){
+                $entry->delete;
+            }
+        }else{
+            $entry = shift @{ $entries };
+            #modify the entry with our new mac 
+            $entry->replace ( 
+                               'dhcpHWAddress' => $new_macs,
+                               'dhcpStatements'=> [
+                                                    "filename $filename",
+                                                    "fixed-address $cb->{'ipaddress'}",
+                                                    "next-server 192.168.1.217",
+                                                    "use-host-decl-names on",
+                                                  ],
+                            );
+        }
+    }else{
+        print STDERR "no entry cn=$self->{'fqdn'} in $self->{'dhcp_basedn'} with scope sub\n";
+        # create new entry
+         $entry = Net::LDAP::Entry->new ( 
+                                          "cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}",
+                                          'cn'             => "$cb->{'fqdn'}",
+                                          'objectClass'    => [
+                                                                "top",
+                                                                "dhcpHost",
+                                                                "dhcpOptions",
+                                                              ],
+                                           'dhcpHWAddress' => $new_macs,
+                                           'dhcpStatements'=> [
+                                                                "filename $filename",
+                                                                "fixed-address $cb->{'ipaddress'}",
+                                                                "next-server 192.168.1.217",
+                                                                "use-host-decl-names on",
+                                                              ],
+                                           'dhcpOption'    => [
+                                                                "option-233 = \"$cb->{'hostname'}\"",
+                                                                "routers 192.168.13.1",
+                                                                "subnet-mask 255.255.255.0"
+                                                              ]
+                                        );
+    }
+    # update the entry
+    $self->ldap_entry_update( $entry );
+    return $self;
+}
+
+sub dhcplinks{
+    my $self = shift;
+    my $cb = shift if @_;
+    print STDERR "LWP hit dhcplinks\n";
+}
+
+################################################################################
+# Functions below this should be standalone (not take the $clipboard as an arg)
+################################################################################
+sub find_ldap_servers{ # locate our ldap uris (use if not provided)
+use Net::DNS;
+    my $self = shift;
+    return [ $self->{'uri'} ] if $self->{'uri'};
+    my $res = Net::DNS::Resolver->new;
+    my $servers;
+    my $query = $res->query("_ldap._tcp.".$self->{'domain'}, "SRV");
+    if ($query){
+        foreach my $rr (grep { $_->type eq 'SRV' } $query->answer) {
+            my $host=$rr->{'target'};
+            if($rr->{'port'} == 636){ push(@{ $servers },"ldaps://$host:636"); }
+            if($rr->{'port'} == 389){ push(@{ $servers },"ldap://$host:389"); }
+        }
+    }
+    return $servers if $servers;
+    return undef;
+}
+
+sub get_ldap_handle{
+    my $self = shift;
+    my $servers;
+    if(@_){ # replace any handle we have with a handle to this one
+        $servers = shift if @_;
+        $servers = [ $servers ] unless(ref($servers) eq 'ARRAY');
+    }else{
+        $servers = $self->find_ldap_servers() unless $servers;
+    }
+    my $mesg;
+    while($server=shift(@{$servers})){
+        if($server=~m/(.*)/){
+            $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/);
+        }
+        $self->{'ldap'} = Net::LDAP->new($server) || warn "could not connect to $server $@";
+        next if($self->{'ldap'} == 1);
+        $mesg = $self->{'ldap'}->bind( $self->{'bind_dn'}, password => $self->{'password'} );
+        #$mesg->code && print STDERR $mesg->error."\n";
+        print STDERR $mesg->error."\n";
+        next if $mesg->code;
+        return $self->{'ldap'};
+    }
+    return undef;
+}
+
+sub get_ldap_entries{
+    my $self = shift;
+    $self->{'ldap'} = $self->get_ldap_handle() unless $self->{'ldap'};
+    return undef unless $self->{'ldap'};
+    my $search = shift if @_;
+    return undef unless $search;
+    $search->{'base'} = $self->{'basdn'} unless $search->{'base'};
+    $search->{'filter'} = "(objectclass=*)" unless $search->{'filter'};
+    $search->{'scope'} = "sub" unless $search->{'scope'};
+    my $records = $self->{'ldap'}->search( 
+                                           'filter' => $search->{'filter'},
+                                           'base'   => $search->{'base'},
+                                           'scope'  => $search->{'scope'},
+                                         );
+    $records->code && die $records->error;
+    undef $servers unless $records->{'resultCode'};
+    my $recs;
+    foreach $entry ($records->entries) { 
+        push(@{ $recs }, $entry);
+    }
+    return $recs;
+}
+
+# Update LDAP
+sub ldap_entry_update{
+    my $self = shift;
+    my $entry = shift if @_;
+    return undef unless $entry;
+    $self->{'ldap'} = $self->get_ldap_handle() unless $self->{'ldap'};
+    return undef unless $self->{'ldap'};
+    my $mesg = $entry->update( $self->{'ldap'} );
+    #$mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+    exit $mesg->code;
+#    $mesg = $ldap->add( $entry );
+#        if($mesg->code == 68){
+#            $mesg = $ldap->delete($entry->{'asn'}->{'objectName'});
+#            $mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+#            if(($mesg->code == 10) && ($mesg->error eq "Referral received")){
+#                foreach my $ref (@{ $mesg->{'referral'} }){
+#                    if($ref=~m/(ldap.*:.*)\/.*/){
+#                        $cb->{'server'} = $ref;
+#                        $cb->{'entry'} = $entry;
+#                        $self->update_ldap_entry($cb);
+#                    }
+#                }
+#            }else{
+#                $mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+#            }
+#            $mesg = $ldap->add( $entry );
+#            if(($mesg->code == 10) && ($mesg->error eq "Referral received")){
+#                foreach my $ref (@{ $mesg->{'referral'} }){
+#                    if($ref=~m/(ldap.*:.*)\/.*/){
+#                        $cb->{'server'} = $ref;
+#                        $cb->{'entry'} = $entry;
+#                        $self->update_ldap_entry($cb);
+#                    }
+#                }
+#            }else{
+#                $mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+#            }
+#
+#            $mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+#        }elsif(($mesg->code == 10) && ($mesg->error eq "Referral received")){
+#                foreach my $ref (@{ $mesg->{'referral'} }){
+#                    if($ref=~m/(ldap.*:.*)\/.*/){
+#                        $cb->{'server'} = $ref;
+#                        $cb->{'entry'} = $entry;
+#                        $self->update_ldap_entry($cb);
+#                    }
+#                }
+#        }else{
+#            $mesg->code && print STDERR $mesg->code." ".$mesg->error."\n";
+#        }
+#          
+#    }
+#    print STDERR "Done updating ".$entry->{'asn'}->{'objectName'}."\n";
+#    return $self;
+}
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
 
 sub rexec{
     my $self = shift;
@@ -75,6 +317,10 @@ sub chpasswd_root{
     return undef unless $passwd;
     return $self;
 }
+
+################################################################################
+# Functions below this should be audited for cleanup
+################################################################################
 
 sub backup_known_hosts{
     my $self = shift;
@@ -335,22 +581,6 @@ sub add_github_deployment_pubkey{
     return $self;
 }
 
-sub find_ldap_servers{
-use Net::DNS;
-    my $self = shift;
-    my $res = Net::DNS::Resolver->new;
-    my $servers;
-    my $query = $res->query("_ldap._tcp.".$self->{'domain'}, "SRV");
-    if ($query){
-        foreach my $rr (grep { $_->type eq 'SRV' } $query->answer) {
-            my $host=$rr->{'target'};
-            if($rr->{'port'} == 636){ push(@{ $servers },"ldaps://$host:636"); }
-            if($rr->{'port'} == 389){ push(@{ $servers },"ldap://$host:389"); }
-        }
-    }
-    return $servers if $servers;
-    return undef;
-}
 
 # Update LDAP with the new information from the host
 sub host_record_updates{
@@ -431,7 +661,6 @@ use Net::LDAP;
         if($server=~m/(.*)/){
             $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/);
         }
-        #next unless($server eq "ldaps://freyr.websages.com:636");
         my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
         next if($ldap == 1);
         $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
@@ -472,46 +701,6 @@ use Net::LDAP;
                                     'base'   =>  $dns_base,
                                   }
                                  );
-}
-
-sub get_ldap_entry{
-use Net::LDAP;
-    my $self = shift;
-    my $search = shift if @_;
-    my $filter="objectclass=*";
-    my $scope = "sub";
-    my $base = $self->{'basedn'};
-    if(ref($search) eq ""){
-        $filter=$search;
-    }elsif(ref($search) eq "HASH"){
-        if(defined($search->{'filter'})){ $filter=$search->{'filter'}; } 
-        if(defined($search->{'scope'})){ $scope=$search->{'scope'}; } 
-        if(defined($search->{'base'})){ $base=$search->{'base'}; } 
-    }else{
-       return undef; 
-    }
-    return undef unless $filter;
-    my $servers=$self->find_ldap_servers();
-    my $mesg;
-    while($server=shift(@{$servers})){
-        if($server=~m/(.*)/){
-            $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/);
-        }
-        my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
-        next if($ldap == 1);
-        $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
-        $mesg->code && print STDERR $mesg->error."\n";
-        next if $mesg->code;
-        my $records = $ldap->search('base' => $base, 'scope' => $scope, 'filter' => $filter);
-        undef $servers unless $records->{'resultCode'};
-        my @entries = $records->entries;
-        if($#entries == 0){
-            $mesg = $ldap->unbind;
-            $mesg->code && print STDERR "unbind: ".$mesg->error;
-            return $entries[0];
-        }
-    }
-    return undef;
 }
 
 sub ip_from_cn{
@@ -602,6 +791,68 @@ sub update_dns{
     $self->update_ldap_entry({ 'entry' => $dns_entry });
 }
 
+
+# use the ipaddress here or it will cache in DNS
+sub wait_for_ssh{
+    my $self=shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    my $hostname;
+    my $count=0;
+    my $got_hostname=0;
+    while((! $got_hostname)&&($count <= 10)){
+        print "Waiting for ssh login: " if($count>0);
+        for(my $i=0; $i<$count; $i++){ print "."; }
+        print "\n" if($count>0);
+        $count++;
+        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} hostname|");
+        chomp(my $hostname=<SSH>);
+        close(SSH);
+        $got_hostname=1 if($hostname); 
+        sleep 30 unless $got_hostname;
+    }
+    return $self;
+}
+
+# use the ipaddress here or it will cache in DNS
+sub wait_for_reboot{
+    my $self = shift;
+    my $cb = shift if @_;
+    my $p = Net::Ping->new();
+    while( $p->ping( $cb->{'ipaddress'}->[0] ) ){
+        print STDERR "$cb->{'ipaddress'}->[0] is still up. Waiting for down.\n";
+        sleep 3;
+    }
+    $p->close();
+    sleep 10;
+    $p = Net::Ping->new();
+    until( $p->ping($cb->{'ipaddress'}->[0]) ){
+        print STDERR "$cb->{'ipaddress'}->[0] is still down. Waiting for up.\n";
+        sleep 3;
+    }
+    $p->close();
+    return $self;
+}
+
+sub tail_prime_init_log{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    # wait for ssh to become available and get it's ssh-key so it won't ask
+    open(SSH,"/usr/bin/ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} /usr/bin/tail -f /var/log/prime-init.log|");
+        while(my $log_line=<SSH>){
+            chomp($log_line);
+            if($log_line=~/prime exit was (.*)/){
+                my $exit=$1;
+                print STDERR "prime exited with $exit\n";
+                return $exit;
+            }
+        }
+    close(SSH);
+    return $self;
+}
+
+
 # Update LDAP
 sub update_ldap_entry{
     my $self = shift;
@@ -665,64 +916,5 @@ sub update_ldap_entry{
     return $self;
 }
 
-# use the ipaddress here or it will cache in DNS
-sub wait_for_ssh{
-    my $self=shift;
-    my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
-    my $hostname;
-    my $count=0;
-    my $got_hostname=0;
-    while((! $got_hostname)&&($count <= 10)){
-        print "Waiting for ssh login: " if($count>0);
-        for(my $i=0; $i<$count; $i++){ print "."; }
-        print "\n" if($count>0);
-        $count++;
-        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} hostname|");
-        chomp(my $hostname=<SSH>);
-        close(SSH);
-        $got_hostname=1 if($hostname); 
-        sleep 30 unless $got_hostname;
-    }
-    return $self;
-}
-
-# use the ipaddress here or it will cache in DNS
-sub wait_for_reboot{
-    my $self = shift;
-    my $cb = shift if @_;
-    my $p = Net::Ping->new();
-    while( $p->ping( $cb->{'ipaddress'}->[0] ) ){
-        print STDERR "$cb->{'ipaddress'}->[0] is still up. Waiting for down.\n";
-        sleep 3;
-    }
-    $p->close();
-    sleep 10;
-    $p = Net::Ping->new();
-    until( $p->ping($cb->{'ipaddress'}->[0]) ){
-        print STDERR "$cb->{'ipaddress'}->[0] is still down. Waiting for up.\n";
-        sleep 3;
-    }
-    $p->close();
-    return $self;
-}
-
-sub tail_prime_init_log{
-    my $self = shift;
-    my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
-    # wait for ssh to become available and get it's ssh-key so it won't ask
-    open(SSH,"/usr/bin/ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} /usr/bin/tail -f /var/log/prime-init.log|");
-        while(my $log_line=<SSH>){
-            chomp($log_line);
-            if($log_line=~/prime exit was (.*)/){
-                my $exit=$1;
-                print STDERR "prime exited with $exit\n";
-                return $exit;
-            }
-        }
-    close(SSH);
-    return $self;
-}
 
 1;

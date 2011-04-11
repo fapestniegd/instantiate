@@ -15,7 +15,6 @@ use Data::Dumper;
 our $tracelevel = 0;
 our $tracefilter;
 
-
 $Util::script_version = "1.0";
 
 sub new{
@@ -28,21 +27,72 @@ sub new{
     $self->{'vicfg'}->{'VI_SERVICEPATH'} = $cnstr->{'servicepath'} || $ENV{'VI_SERVICEPATH'} || "/sdk";
     $self->{'vicfg'}->{'VI_USERNAME'}    = $cnstr->{'username'}    || $ENV{'VI_USERNAME'}    || $ENV{'LOGNAME'};
     $self->{'vicfg'}->{'VI_PASSWORD'}    = $cnstr->{'password'}    || $ENV{'VI_PASSWORD'}    || $ENV{'AD_PASSWORD'};
-    $self->{'action'} = $cnstr->{'action'} if($cnstr->{'action'});
+    $self->{'actions'} = $cnstr->{'actions'} if($cnstr->{'actions'});
+    return $self;
+}
+
+sub do{
+    my $self = shift;
+    my $method = shift if @_;
+    my $clipboard = shift if @_;
     $self->load_env();
     Opts::parse();
+    #foreach my $key (keys (%ENV)){
+    #   if($key=~m/VI_/){
+    #       print STDERR "$key $ENV{$key}\n";
+    #   }
+    #}
     Opts::validate();
     Util::connect();
-    $self->flush_env();
-    return $self;
-}
-
-sub teardown{
-    my $self = shift;
+    $self->$method($clipboard);
     Util::disconnect();
+    $self->flush_env();
+}
+
+################################################################################
+# Wrappers for the non-blocking API, takes clipboard, prints clipboard on stdout
+################################################################################
+sub shutdown{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->do('power_off',$cb);
     return $self;
 }
 
+sub startup{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->do('power_on',$cb);
+    return $self;
+}
+
+sub destroy{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->do('destroy_vm',$cb);
+    return $self;
+}
+
+sub deploy{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->do('create_vm',$cb);
+    return $self;
+}
+
+sub get_macaddrs{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->do('vm_macaddrs',$cb);
+    return $self;
+}
+################################################################################
+#
+################################################################################
+
+################################################################################
+# The blocking API for top-down "[Do It Now]" scripts. (Heavy Lifting Done Here)
+################################################################################
 sub trace{
    my ($self, $level, $text) = @_;
    if (($level <= $tracelevel) && (defined $text)) {
@@ -59,7 +109,8 @@ sub trace{
 
 sub power_on {
     my $self = shift;
-    my $name = shift if @_;
+    my $clipboard = shift;
+    my $name = $clipboard->{'vmname'} if $clipboard->{'vmname'};
     return undef unless $name;
     my $vm = $self->vm_handle({ 'displayname' => $name });
     return undef if($vm->runtime->powerState->val eq 'poweredOn');
@@ -90,9 +141,11 @@ sub power_on {
 
 sub power_off{
     my $self = shift;
-    my $name = shift if @_;
+    my $clipboard = shift;
+    my $name = $clipboard->{'vmname'} if $clipboard->{'vmname'};
     return undef unless $name;
     my $vm = $self->vm_handle({ 'displayname' => $name });
+    return undef unless $vm;
     return undef if($vm->runtime->powerState->val eq 'poweredOff');
     my $mor_host = $vm->runtime->host;
     my $hostname = Vim::get_view(mo_ref => $mor_host)->name;
@@ -117,7 +170,6 @@ sub power_off{
         }
     }
 }
-
 
 # The vi perl toolkit can read these from the environment
 sub load_env{
@@ -154,7 +206,8 @@ sub vm_handle{
 
 sub vm_macaddrs{
     my $self = shift;
-    my $vm = shift if @_;
+    my $cb = shift if @_;
+    my $vm = $cb->{'vmname'} if  $cb->{'vmname'};
     my $macaddrs;
     if(ref($vm) ne 'VirtualMachine'){
         $vm = $self->vm_handle({ 'displayname' => $vm });
@@ -171,14 +224,16 @@ sub vm_macaddrs{
             push(@{ $macaddrs },$dev->macAddress);
         }
     }
-    return $macaddrs;
+    $cb->{'macaddrs'} = $macaddrs;
+    print YAML::Dump($cb);
 }
 
 sub destroy_vm{
     my $self = shift;
-    my $vm = shift if @_;
+    my $clipboard = shift;
+    my $vm = $clipboard->{'vmname'} if $clipboard->{'vmname'};
     if(ref($vm) ne 'VirtualMachine'){
-        $vm = $self->vm_handle($vm);
+        $vm = $self->vm_handle({ 'displayname' => $vm });
     }
     return undef unless(ref($vm) eq 'VirtualMachine');
     $self->load_env();
@@ -422,4 +477,7 @@ sub get_network {
     # default network will be used
     return (error => 2);
 }
+################################################################################
+#
+################################################################################
 1;

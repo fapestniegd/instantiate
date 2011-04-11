@@ -23,26 +23,37 @@ use POE::Component::Instantiate;
 my $data = { 
              'sp'   => { # servic provider we call actions against
                          'actions'    => 'VMware::ESX',
-                         'connection' => {
+                         'connection' => { # virtualcenter uses windows creds
                                            'server'   => 'virtualcenter',
                                            'username' => $ENV{'WINDOWS_USERNAME'},
                                            'password' => $ENV{'WINDOWS_PASSWORD'},
                                          },
                        },
-             'cb'   => { # clipboard passed from task to task
-                         'vmname'        => 'badger.eftdomain.net',
-                         'vmhost'        => 'lab01.eftdomain.net',
-                         'datacenter'    => 'Nashville',
-                         'guestid'       => 'rhel5Guest',
-                         'datastore'     => 'LUN_300',
-                         'disksize'      => 10485760,
-                         'memory'        => 512,
-                         'num_cpus'      => 1,
-                         'nic_network'   => 'VLAN_113',
-                         'nic_poweron'   => 0,
-                         'resource_pool' => 'Deployment_Lab',
+             'ldap' => { # credentials for updates to LDAP
+                         'uri'         => $ENV{'LDAP_URI'},
+                         'base_dn'     => $ENV{'BASE_DN'},
+                         'bind_dn'     => $ENV{'BIND_DN'},
+                         'password'    => $ENV{'LDAP_PASSWORD'},
+                         'dhcp_basedn' => "cn=DHCP,$ENV{'BASE_DN'}"
                        },
-             'task' => 'redeploy', # what we're asking it to do with $data->{'cb'}
+         'dhcplinks'=> "http://newton.$ENV{'DOMAIN'}/cgi-bin/dhcplinks.cgi",
+             'cb'   => { # clipboard passed from task to task
+                         'hostname'       => 'badger',
+                         'vmname'         => "badger.lab.$ENV{'DOMAIN'}",
+                         'fqdn'           => "badger.lab.$ENV{'DOMAIN'}",
+                         'ipaddress'      => '192.168.13.162',
+                         'vmhost'         => "lab01.$ENV{'DOMAIN'}",
+                         'datacenter'     => 'Nashville',
+                         'guestid'        => 'rhel5Guest',
+                         'datastore'      => 'LUN_300',
+                         'disksize'       => 10485760,
+                         'memory'         => 512,
+                         'num_cpus'       => 1,
+                         'nic_network'    => 'VLAN_113',
+                         'nic_poweron'    => 0,
+                         'resource_pool'  => 'Deployment_Lab',
+                       },
+             'task' => 'redeploy', # what we're asking it use the clipboard for
          };
 ################################################################################
 
@@ -51,8 +62,7 @@ my $data = {
 sub _start {
     my ( $self, $kernel, $heap, $sender, @args) = 
      @_[OBJECT,  KERNEL,  HEAP,  SENDER, ARG0 .. $#_];
-    $heap->{'control'} = POE::Component::Instantiate->new($data->{'sp'});
-    $kernel->post( $heap->{'control'}, 'add_clipboard', $data->{'cb'} );
+    $heap->{'control'} = POE::Component::Instantiate->new($data);
     $kernel->post( $heap->{'control'}, $data->{'task'});
   }
 

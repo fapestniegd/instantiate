@@ -25,10 +25,26 @@ sub new {
     my $class = shift;
     my $self = bless { }, $class;
     my $cnstr = shift if @_;
+    $self->{'trace_clipboard'} = 0;
+    # Service Provider Items
     $self->{'actions'} = $cnstr->{'sp'}->{'actions'} if $cnstr->{'sp'}->{'actions'};
     $self->{'credentials'} = $cnstr->{'sp'}->{'connection'} if $cnstr->{'sp'}->{'connection'};
+    # LDAP (CMDB) Items
+    $self->{'ldap'} = $cnstr->{'ldap'} if $cnstr->{'ldap'};
+    # The Clipboard
     $self->{'clipboard'} = $cnstr->{'cb'} if $cnstr->{'cb'};
+    # The Task
     $self->{'task'} = $cnstr->{'task'} if $cnstr->{'task'};
+    # Set up the credentials
+    $self->{'sp'} = $self->service_provider();
+    $self->{'wc'} = WebSages::Configure->new({
+                                               'fqdn'      => $self->{'clipboard'}->{'fqdn'},
+                                               'ipaddress' => $self->{'clipboard'}->{'ipaddress'},
+                                               'ldap'      => $self->{'ldap'},
+                                               'gitosis'   => "$ENV{'GITOSIS_HOME'}",
+                                            });
+    exit 1 unless( $self->{'wc'} );
+    # create the worker session
     POE::Session->create(
                           options => { debug => 0, trace => 0},
                           object_states => [
@@ -45,6 +61,7 @@ sub new {
                                                       },
                                            ],
                         );
+    
     return $self;
 }
 
@@ -66,16 +83,7 @@ sub service_provider{
 sub _poe_start {
     my ($self, $kernel, $heap, $sender, @args) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     $heap->{'clipboard'} = $self->{'clipboard'} if $self->{'clipboard'};
-    $self->{'sp'} = $self->service_provider();
-    $self->{'wc'} =  WebSages::Configure->new({
-                                                'fqdn'    => $heap->{'clipboard'}->{'fqdn'},
-                                                'ldap'    => {
-                                                               'bind_dn'  => $ENV{'LDAP_BINDDN'},
-                                                               'password' => $ENV{'LDAP_PASSWORD'}
-                                                             },
-                                                'gitosis' => "$ENV{'GITOSIS_HOME'}",
-                                             });
-    $_[KERNEL]->alias_set("$_[OBJECT]"); # set the object as an alias so it may be 'posted' to
+    $_[KERNEL]->alias_set("$_[OBJECT]"); # set the object as an alias so it may be "post'ed" to
 }
 
 sub _poe_stop {
@@ -97,25 +105,27 @@ sub redeploy {
     my $type = $self->{'actions'};
     if($type eq 'VMware::ESX'){
         $heap->{'actions'} = [ 
-                               "wc:disable_monitoring",        # supress monitoring for the host
-                               "sp:shutdown",                  # power off the node
-                               "sp:destroy",                   # delete the node from disk
-                               "wc:clean_keys",                # remove exitsing trusted keys (cfengine ppkeys)
-                               "sp:deploy",                    # deploy the new host
-                               "sp:get_macaddr",               # get the MAC address from the API
-                               "wc:ldap_pxe",                  # updated the MAC address in ou=DHCP in LDAP, set do boot pxe
-                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
-                               "sp:poweron",                   # power on the vm (it should PXE by default)
-                               "wc:ping_until_up",             # ping the host until you recieve icmp (should then be installing)
-                               "wc:ldap_nopxe",                # set the ou=DHCP to boot locally
-                               "wc:dhcplinks",                 # call dhcplinks.cgi again to point it to localboot 
-                               "wc:ping_until_down",           # ping it until it goes down (the reboot at the end of install)
-                               "wc:ping_until_up",             # ping it until it comes back online
-                               "wc:wait_for_ssh",              # wait until ssh is available 
-                               "wc:post_config",               # log in and do any post configuration
-                               "wc:inspect_config",            # poke around and make sure everything looks good
-                               "wc:cleanup",                   # remove any temp files 
-                               "wc:enable_monitoring",         # re-enable monitoring for the host
+#                               "wc:disable_monitoring",        # supress monitoring for the host
+#                               "sp:shutdown",                  # power off the node
+#                               "sp:destroy",                   # delete the node from disk
+##                               "wc:clean_keys",                # remove exitsing trusted keys (cfengine ppkeys)
+##                               "wc:update_AD_DNS",            # update Active Directory DNS with the host's IP
+#                               "sp:deploy",                    # deploy the new host
+                               "sp:get_macaddrs",               # get the MAC address from the API
+                               "wc:ldap_dhcp_install",             # updated the MAC address in LDAP, set do boot pxe
+#                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks from LDAP
+#                               "sp:startup",                   # power on the vm (it should PXE by default)
+##                               "wc:ping_until_up",             # ping the host until you recieve icmp (should then be installing)
+                               "wc:sleep_10",                # set the ou=DHCP to boot locally
+                               "wc:ldap_dhcp_local",                # set the ou=DHCP to boot locally
+##                               "wc:dhcplinks",                 # call dhcplinks.cgi again to point it to localboot 
+##                               "wc:ping_until_down",           # ping it until it goes down (the reboot at the end of install)
+##                               "wc:ping_until_up",             # ping it until it comes back online
+##                               "wc:wait_for_ssh",              # wait until ssh is available 
+##                               "wc:post_config",               # log in and do any post configuration
+##                               "wc:inspect_config",            # poke around and make sure everything looks good
+##                               "wc:cleanup",                   # remove any temp files 
+#                               "wc:enable_monitoring",         # re-enable monitoring for the host
                              ];
     }
     if($type eq 'Linode'){
@@ -177,7 +187,7 @@ sub redeploy {
 ################################################################################
 # Worker Tasks :
 #
-# any output to STDOUT will be interpreted as YAML and will replace the contents
+# any output to STDOUT will be interpreted as YAml ANd will replace the contents
 # of $heap->{'clipboard'} (a metaphor for the clipboard being passed back)
 ################################################################################
 sub next_item {
@@ -235,7 +245,7 @@ sub on_child_stdout {
     my ($stdout_line, $wheel_id) = @_[ARG0, ARG1];
     my $child = $heap->{children_by_wid}{$wheel_id};
     $heap->{'child_output'}.="$stdout_line\n";
-    print "pid ", $child->PID, " STDOUT: $stdout_line\n";
+    print "pid ", $child->PID, " STDOUT: $stdout_line\n" if $self->{'trace_clipboard'};
 }
 
 # Wheel event, including the wheel's ID.
@@ -264,7 +274,7 @@ sub on_child_close {
         eval { $replacement_clipboard = YAML::Load("$heap->{'child_output'}\n"); };
         if(! $@){
             $heap->{'clipboard'} = $replacement_clipboard;
-           print "--------------------\nNew Clipboard:\n--------------------\n$heap->{'child_output'}\n--------------------\n";
+            print "--------------------\nNew Clipboard:\n--------------------\n$heap->{'child_output'}\n--------------------\n" if $self->{'trace_clipboard'};
         }else{
             # stop all remaining tasks if something printed out to STDOUT that wasn't YAML
             print STDERR "Non-YAML STDOUT found. Aborting work thread.\n";
@@ -278,13 +288,13 @@ sub on_child_close {
         $heap->{'child_output'} = undef;
     }
     # move to the next item
-    $kernel->yield('next_item') if($heap->{'actions'}->[0]);
   }
 
 sub on_child_signal {
     my ($self, $kernel, $heap, $sender, $wheel_id, $pid, $status) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     print "pid $pid exited with status $status.\n";
     exit if($status ne 0);
+    $kernel->yield('next_item') if($heap->{'actions'}->[0]);
     my $child = delete $heap->{children_by_pid}{$status};
     # May have been reaped by on_child_close().
     return unless defined $child;
