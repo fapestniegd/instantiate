@@ -1,0 +1,24 @@
+#!/bin/bash
+# this script is a daemon that reads the named pipe that dhcplinks.cgi writes to, and calls the dhcplinks script
+# this script runs as the user that owns the files/directories in the TFTP boot root directory.
+# we do this so the files in tftproot don't need to be owned by the webserver process
+# 
+# This may also be achieved with the mod_suexec in apache, in which case you don't need these scripts at all
+fifo_watch(){
+FIFO=$1;
+    [ -z $FIFO ] && exit;
+    [ ! -p $FIFO ] && exit;
+    while [ 1 ];do 
+        cat ${FIFO}| while read line;do 
+            case "$line" in
+                dhcplinks)
+                    /usr/local/sbin/dhcplinks
+                ;;
+                *)
+                    logger -p local5.info "unknown fifo command \"$line\""
+                ;;
+            esac
+        done
+    done
+}
+fifo_watch /var/run/httpd.cmd
