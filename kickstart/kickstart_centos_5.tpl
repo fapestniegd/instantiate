@@ -4,7 +4,7 @@ langsupport --default en_US.UTF-8 en_US.UTF-8
 keyboard us
 mouse genericwheelps/2 --device psaux
 skipx
-network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 --gateway [% gateway %] --nameserver [% nameserver %] --hostname [% fqdn %]
+network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 --gateway [% gateway %] --nameserver [% nameservers %] --hostname [% fqdn %]
 
 url --url http://packages.lab.eftdomain.net/mirrors/centos/latest/5/os/i386/
 cdrom
