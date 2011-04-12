@@ -122,14 +122,18 @@ sub sets_for{
 }
 1;
 
+use Template;
 my $debug = 0;
 my $cfg = {
             'debug'    => $debug,
             'domain'   => 'eftdomain.net',
-            'tftpboot' => '/opt/local/tftpboot/pxelinux.cfg',
+            'tftpboot' => '/opt/local/tftpboot',
             'sets_ou'  => 'ou=Sets',
           };
 
+################################################################################
+# First we query our Configuration Management meta-data repository (LDAP)
+################################################################################
 my $ldap = Net::LDAP::CMDB->new($cfg);
 my $entries = $ldap->search("(objectClass=dhcpHost)");
 
@@ -163,7 +167,7 @@ foreach my $entry (@{ $entries }){
          # no need to look up the OS if we're not installing
          if($host->{'filename'}){ 
              # again, no need to look up the OS if we're not installing
-             if($host->{'filename'} eq "pxelinux.install"){ 
+             if($host->{'filename'} eq qq("pxelinux.install")){ 
                  if(!defined($hostentry)){
                      print STDERR "$hostdn does not exist in LDAP\n" if $debug;
                  }else{
@@ -183,7 +187,10 @@ foreach my $entry (@{ $entries }){
     push (@{ $gcfg->{'hosts'} },$host);
 }
 
-chdir($cfg->{'tftpboot'});
+################################################################################
+# now we create the symlink chain that pxe expects to find.
+################################################################################
+chdir("$cfg->{'tftpboot'}/pxelinux.cfg");
 foreach my $h (@{ $gcfg->{'hosts'} }){
     if($h->{'filename'}){
         next unless $h->{'id'};
@@ -207,7 +214,13 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         $symlink_exists = eval { symlink($h->{'id'},$h->{'hardware'}); 1};
         $symlink_exists = eval { symlink($h->{'fixed-address'},$h->{'id'}); 1};
         $symlink_exists = eval { symlink($hexval,$h->{'fixed-address'}); 1};
-        if($h->{'filename'} eq 'pxelinux.install'){
+        unlink $hexval if(-l $hexval);
+        # Template out our OS PXE menu
+        if(($h->{'filename'} eq '"pxelinux.install"') && defined($h->{'os'})){
+            my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
+            my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
+            my $vars = { 'fqdn' => $h->{'id'}, 'domainname' => $cfg->{'domain'} };
+            $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
             $symlink_exists = eval { symlink("../pxelinux.menus/install_$h->{'id'}",$hexval); 1};
         }else{
             $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
@@ -215,4 +228,4 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         $hexval='';
     }
 }
-print "GLOBAL: ".Data::Dumper->Dump([$gcfg]);
+#print "GLOBAL: ".Data::Dumper->Dump([$gcfg]);

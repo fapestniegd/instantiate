@@ -1,12 +1,12 @@
 all: install test
 
-install: install_cgi install_sh install_watcher
+install: install_cgi install_pl install_watcher
 
 install_cgi: dhcplinks.cgi
 	scp -p dhcplinks.cgi root@newton:/var/www/cgi-bin/dhcplinks.cgi
 
-install_sh: dhcplinks.sh
-	scp -p dhcplinks.sh root@newton:/usr/local/sbin/dhcplinks
+install_pl: dhcplinks.pl
+	scp -p dhcplinks.pl root@newton:/usr/local/sbin/dhcplinks
 
 install_watcher: fifo_watcher
 	scp -p fifo_watcher root@newton:/usr/local/sbin/fifo_watcher
@@ -19,9 +19,9 @@ dhcplinks.cgi:
 	chmod 755 dhcplinks.cgi
 	touch dhcplinks.cgi
 
-dhcplinks.sh:
-	chmod 755 dhcplinks.sh
-	touch dhcplinks.sh
+dhcplinks.pl:
+	chmod 755 dhcplinks.pl
+	touch dhcplinks.pl
 
 fifo_watcher:
 	chmod 755 fifo_watcher

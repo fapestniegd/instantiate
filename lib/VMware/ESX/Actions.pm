@@ -454,7 +454,7 @@ sub get_network {
             my $vd_connect_info =
                VirtualDeviceConnectInfo->new(allowGuestControl => 1,
                                              connected => 0,
-                                             startConnected => $poweron);
+                                             startConnected => 1);
 
             my $nic = VirtualPCNet32->new(backing => $nic_backing_info,
                                           key => 0,

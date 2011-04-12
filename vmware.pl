@@ -52,6 +52,7 @@ my $data = {
                          'nic_network'    => 'VLAN_113',
                          'nic_poweron'    => 0,
                          'resource_pool'  => 'Deployment_Lab',
+                         'dhcplinks'      => "http://newton.$ENV{'DOMAIN'}/cgi-bin/dhcplinks.cgi",
                        },
              'task' => 'redeploy', # what we're asking it use the clipboard for
          };

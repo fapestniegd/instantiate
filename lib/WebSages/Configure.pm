@@ -111,7 +111,7 @@ sub ldap_dhcp_install{
             $entry->replace ( 
                                'dhcpHWAddress' => $new_macs,
                                'dhcpStatements'=> [
-                                                    "filename $filename",
+                                                    "filename \"$filename\"",
                                                     "fixed-address $cb->{'ipaddress'}",
                                                     "next-server 192.168.1.217",
                                                     "use-host-decl-names on",
@@ -131,7 +131,7 @@ sub ldap_dhcp_install{
                                                               ],
                                            'dhcpHWAddress' => $new_macs,
                                            'dhcpStatements'=> [
-                                                                "filename $filename",
+                                                                "filename \"$filename\"",
                                                                 "fixed-address $cb->{'ipaddress'}",
                                                                 "next-server 192.168.1.217",
                                                                 "use-host-decl-names on",
@@ -149,9 +149,23 @@ sub ldap_dhcp_install{
 }
 
 sub dhcplinks{
+use LWP::UserAgent;
     my $self = shift;
     my $cb = shift if @_;
-    print STDERR "LWP hit dhcplinks\n";
+    my $ua = LWP::UserAgent->new;
+    $ua->agent("__PACKAGE__/0.1 ");
+
+    # Create a request
+    my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
+
+    # Pass request to the user agent and get a response back
+    my $res = $ua->request($req);
+    # Check the outcome of the response
+    if ($res->is_success) {
+        print STDERR $res->content;
+    }else{
+        print STDERR $res->status_line, "\n";
+    }
 }
 
 ################################################################################
@@ -819,15 +833,17 @@ sub wait_for_reboot{
     my $self = shift;
     my $cb = shift if @_;
     my $p = Net::Ping->new();
-    while( $p->ping( $cb->{'ipaddress'}->[0] ) ){
-        print STDERR "$cb->{'ipaddress'}->[0] is still up. Waiting for down.\n";
+    my $ip;
+    (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
+    while( $p->ping( $ip ) ){
+        print STDERR "$ip is still up. Waiting for down.\n";
         sleep 3;
     }
     $p->close();
     sleep 10;
     $p = Net::Ping->new();
-    until( $p->ping($cb->{'ipaddress'}->[0]) ){
-        print STDERR "$cb->{'ipaddress'}->[0] is still down. Waiting for up.\n";
+    until( $p->ping($ip) ){
+        print STDERR "$ip is still down. Waiting for up.\n";
         sleep 3;
     }
     $p->close();
