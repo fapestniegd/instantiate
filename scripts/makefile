@@ -1,6 +1,6 @@
 all: install test
 
-install: install_cgi install_sh fifo_watcher
+install: install_cgi install_sh install_watcher
 
 install_cgi: dhcplinks.cgi
 	scp -p dhcplinks.cgi root@newton:/var/www/cgi-bin/dhcplinks.cgi
@@ -10,10 +10,10 @@ install_sh: dhcplinks.sh
 
 install_watcher: fifo_watcher
 	scp -p fifo_watcher root@newton:/usr/local/sbin/fifo_watcher
-	ssh root@newton pskill fifo_watcher; nohup /usr/local/sbin/fifo_watcher &
+	ssh root@newton pkill -HUP fifo_watcher;
 
 test: install
-	wget -O "http://newton/cgi-bin/dhcplinks.cgi"
+	wget -qO - "http://newton/cgi-bin/dhcplinks.cgi" | html2text -nobs
 
 dhcplinks.cgi:
 	chmod 755 dhcplinks.cgi

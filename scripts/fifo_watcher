@@ -4,6 +4,13 @@
 # we do this so the files in tftproot don't need to be owned by the webserver process
 # 
 # This may also be achieved with the mod_suexec in apache, in which case you don't need these scripts at all
+
+traphup(){
+    $0 "$@" &
+    exit 0
+}
+trap traphup SIGHUP
+
 fifo_watch(){
 FIFO=$1;
     [ -z $FIFO ] && exit;
@@ -21,4 +28,5 @@ FIFO=$1;
         done
     done
 }
+#exit 0;
 fifo_watch /var/run/httpd.cmd
