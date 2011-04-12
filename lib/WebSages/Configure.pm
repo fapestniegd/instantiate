@@ -828,8 +828,16 @@ sub wait_for_ssh{
     return $self;
 }
 
-# use the ipaddress here or it will cache in DNS
 sub wait_for_reboot{
+    my $self = shift;
+    $self->wait_for_down(@_);
+    sleep 10;
+    $self->wait_for_up(@_);
+    return $self;
+}
+
+# use the ipaddress here or it will cache in DNS
+sub wait_for_down{
     my $self = shift;
     my $cb = shift if @_;
     my $p = Net::Ping->new();
@@ -840,7 +848,14 @@ sub wait_for_reboot{
         sleep 3;
     }
     $p->close();
-    sleep 10;
+}
+
+sub wait_for_up{
+    my $self = shift;
+    my $cb = shift if @_;
+    my $p = Net::Ping->new();
+    my $ip;
+    (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     $p = Net::Ping->new();
     until( $p->ping($ip) ){
         print STDERR "$ip is still down. Waiting for up.\n";

@@ -105,27 +105,25 @@ sub redeploy {
     my $type = $self->{'actions'};
     if($type eq 'VMware::ESX'){
         $heap->{'actions'} = [ 
-#                               "wc:disable_monitoring",       # supress monitoring for the host
+                               "wc:disable_monitoring",       # supress monitoring for the host
                                "sp:shutdown",                  # power off the node
                                "sp:destroy",                   # delete the node from disk
-##                               "wc:clean_keys",              # remove exitsing trusted keys (cfengine ppkeys)
-##                               "wc:update_AD_DNS",           # update Active Directory DNS with the host's IP
+#                               "wc:clean_keys",              # remove exitsing trusted keys (cfengine ppkeys)
+#                               "wc:update_AD_DNS",           # update Active Directory DNS with the host's IP
                                "sp:deploy",                    # deploy the new host
                                "sp:get_macaddrs",              # get the MAC address from the API
                                "wc:ldap_dhcp_install",         # updated the MAC address in LDAP, set do boot pxe
-                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks from LDAP
+                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
                                "sp:startup",                   # power on the vm (it should PXE by default)
-                               "wc:wait_for_reboot",           # kickstart will reboot the noded
-                               "wc:sleep_10",                  # set the ou=DHCP to boot locally
-                               "wc:ldap_dhcp_local",                # set the ou=DHCP to boot locally
-                               "wc:dhcplinks",                 # call dhcplinks.cgi again to point it to localboot 
-##                               "wc:ping_until_down",           # ping it until it goes down (the reboot at the end of install)
-##                               "wc:ping_until_up",             # ping it until it comes back online
-##                               "wc:wait_for_ssh",              # wait until ssh is available 
-##                               "wc:post_config",               # log in and do any post configuration
-##                               "wc:inspect_config",            # poke around and make sure everything looks good
-##                               "wc:cleanup",                   # remove any temp files 
-#                               "wc:enable_monitoring",         # re-enable monitoring for the host
+                               "wc:wait_for_up",               # while we install...
+                               "wc:ldap_dhcp_local",           #   set the ou=DHCP to boot locally
+                               "wc:dhcplinks",                 #   and call dhcplinks.cgi again to point it to localboot 
+                               "wc:wait_for_reboot",             # kickstart will reboot the node
+                               "wc:wait_for_ssh",              # wait until ssh is available 
+#                               "wc:post_config",               # log in and do any post configuration
+#                               "wc:inspect_config",            # poke around and make sure everything looks good
+#                               "wc:cleanup",                   # remove any temp files 
+                               "wc:enable_monitoring",         # re-enable monitoring for the host
                              ];
     }
     if($type eq 'Linode'){
