@@ -33,20 +33,20 @@ reboot
 %packages
 @Base
 dhcp
-autodir
+# autodir
 sendmail-cf
 perl-Net-DNS
-perl-Sys-Hostname-Long
+# perl-Sys-Hostname-Long
 perl-LDAP
-cfengine
+# cfengine
 xorg-x11-xauth
 xterm
 openldap-clients
 -java-1.5.0-ibm
 -java-1.5.0-ibm-devel
 -gpm
-cfengine-community
-vmware-tools-nox
+# cfengine-community
+# vmware-tools-nox
 
 %post
 # First boot fixups
