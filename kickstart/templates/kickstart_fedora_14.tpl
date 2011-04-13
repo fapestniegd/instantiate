@@ -6,7 +6,7 @@ network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 -
 
 url --url https://packages.[% domainname %]/mirrors/fedora/latest/14/Fedora/i386/os --noverifyssl
 repo --name=Everything --baseurl=https://packages.lab.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
-rootpw --iscrypted  [% root_crypt_passwd %]
+rootpw --iscrypted  [% rootpw %]
 firewall --enabled
 authconfig --enableshadow --enablemd5 
 timezone America/Chicago

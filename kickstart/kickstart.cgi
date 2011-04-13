@@ -249,13 +249,13 @@ $tpl_file=~s/\s/_/g;
 
 my $template = Template->new({'INCLUDE_PATH' => "/opt/local/kickstart/templates"});
 my $vars = { 
-             'ip'               => $ip,
-             'gateway'          => $gateway,
-             'fqdn'             => $fqdn,
-             'hostname'         => $hostname,
-             'domainname'       => $domain,
-             'nameservers'      => '192.168.1.54',
-             'crypt_root_paswd' => '$1$/TWX24ae$82zOJF5hk.IiKw8PbMKoP0',
+             'ip'          => $ip,
+             'gateway'     => $gateway,
+             'fqdn'        => $fqdn,
+             'hostname'    => $hostname,
+             'domainname'  => $domain,
+             'nameservers' => '192.168.1.54',
+             'rootpw'      => '$1$/TWX24ae$82zOJF5hk.IiKw8PbMKoP0',
            };
 my $content;
 $template->process($tpl_file, $vars, \$content);

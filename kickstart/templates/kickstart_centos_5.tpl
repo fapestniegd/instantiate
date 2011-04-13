@@ -8,7 +8,7 @@ network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 -
 
 url --url http://packages.lab.eftdomain.net/mirrors/centos/latest/5/os/i386/
 # cdrom
-rootpw --iscrypted  [% crypt_root_paswd %]
+rootpw --iscrypted  [% rootpw %]
 firewall --enabled
 authconfig --enableshadow --enablemd5
 timezone America/Chicago
