@@ -1,4 +1,7 @@
 #!/usr/bin/perl -w
+################################################################################
+# a package to query LDAP with our conventions
+################################################################################
 package Net::LDAP::CMDB;
 use Cwd;
 use FileHandle;

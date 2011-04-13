@@ -7,7 +7,7 @@ network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 -
 url --url https://packages.[% domainname %]/mirrors/fedora/latest/14/Fedora/i386/os --noverifyssl
 
 # This line complains about a corrupted repomd.xml even from a fresh rsync:
-# repo --name=Everything --baseurl=https://packages.lab.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
+repo --name=Everything --baseurl=https://packages.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
 
 rootpw --iscrypted  [% rootpw %]
 firewall --enabled
@@ -36,13 +36,13 @@ reboot
 %packages
 @Base
 @Gnome Desktop Environment
+xterm 
+xorg-x11-apps  
+xorg-x11-xauth
 pam_ldap 
 nss_ldap
 autodir
 nscd
-xterm 
-xorg-x11-apps  
-xorg-x11-xauth
 %end
 
 
