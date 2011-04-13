@@ -1,19 +1,19 @@
 install
 lang en_US.UTF-8
-langsupport --default en_US.UTF-8 en_US.UTF-8
 keyboard us
-mouse genericwheelps/2 --device psaux
 skipx
 network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 --gateway [% gateway %] --nameserver [% nameservers %] --hostname [% fqdn %]
 
-url --url http://packages.lab.eftdomain.net/mirrors/centos/latest/5/os/i386/
-cdrom
-rootpw --iscrypted  [% crypt_root_paswd %]
+url --url https://packages.[% domainname %]/mirrors/fedora/latest/14/Fedora/i386/os --noverifyssl
+repo --name=Everything --baseurl=https://packages.lab.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
+rootpw --iscrypted  [% root_crypt_passwd %]
 firewall --enabled
-authconfig --enableshadow --enablemd5
+authconfig --enableshadow --enablemd5 
 timezone America/Chicago
-zerombr yes
+zerombr
 bootloader --location=mbr
+selinux --disabled
+xconfig --defaultdesktop=Gnome
 
 clearpart --all
 part /boot --fstype ext3 --size=256
@@ -32,21 +32,16 @@ logvol /opt  --fstype ext3 --name=opt  --vgname=vg_opt --size=128 --grow
 reboot
 %packages
 @Base
-dhcp
-# autodir
-sendmail-cf
-perl-Net-DNS
-# perl-Sys-Hostname-Long
-perl-LDAP
-# cfengine
+@Gnome Desktop Environment
+pam_ldap 
+nss_ldap
+autodir
+nscd
+xterm 
+xorg-x11-apps  
 xorg-x11-xauth
-xterm
-openldap-clients
--java-1.5.0-ibm
--java-1.5.0-ibm-devel
--gpm
-# cfengine-community
-# vmware-tools-nox
+%end
+
 
 %post
 # First boot fixups
@@ -65,15 +60,6 @@ chmod 744 /usr/local/sbin/firstrun
 EORCL
 chmod 755 /etc/rc.local
 
-/bin/rm /etc/yum.repos.d/*.repo
-/bin/cat<<EOREPO>/etc/yum.repos.d/eftsource.repo
-[centos54-eftsource]
-name=EFTSOURCE primary CentOS 5.4 Repository
-baseurl=http://192.168.1.217/centos/5.4/testing/i386/CentOS
-enabled=1
-gpgcheck=0
-EOREPO
-/bin/chmod 644 /etc/yum.repos.d/eftsource.repo
 
 /bin/cat<<EOSEL>/etc/selinux/config
 SELINUX=disabled
@@ -95,7 +81,31 @@ tls_reqcert allow
 tls_checkpeer no
 pam_password md5
 pam_check_host_attr yes
+
+nss_initgroups_ignoreusers root,ldap,named,avahi,haldaemon,dbus
+bind_timeout 2
+nss_reconnect_tries 2
+nss_reconnect_sleeptime 1
+nss_reconnect_maxsleeptime 3
+nss_reconnect_maxconntries 3
+bind_policy soft
+
 EOLDC
+
+if [ -f /etc/openldap/ldap.conf ];then
+    /bin/rm -f /etc/openldap/ldap.conf
+fi
+(cd /etc/openldap; ln -s ldap.conf /etc/ldap.conf)
+
+if [ -f /etc/nss_ldap.conf ];then
+    /bin/rm -f /etc/nss_ldap.conf
+fi
+(cd /etc/; ln -s ldap.conf nss_ldap.conf)
+
+if [ -f /etc/pam_ldap.conf ];then
+    /bin/rm -f /etc/pam_ldap.conf
+fi
+(cd /etc/; ln -s ldap.conf pam_ldap.conf)
 
 /bin/cat<<EONSS>/etc/nsswitch.conf
 passwd:     files ldap
@@ -115,30 +125,72 @@ automount:  files ldap
 aliases:    files
 EONSS
 
+/bin/cat<<EOSUDO>/etc/sudoers
+Defaults    requiretty
+Defaults    env_reset
+Defaults    env_keep =  "COLORS DISPLAY HOSTNAME HISTSIZE INPUTRC KDEDIR LS_COLORS"
+Defaults    env_keep += "MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE"
+Defaults    env_keep += "LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES"
+Defaults    env_keep += "LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE"
+Defaults    env_keep += "LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY"
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin
+root	ALL=(ALL) 	ALL
+%bofh	ALL=(ALL)  NOPASSWD:ALL
+
+bobbysmith	ALL=(ALL)	ALL
+EOSUDO
+chmod 440 /etc/sudoers
+
+
+/bin/cat<<EOPPA>/etc/pam.d/password-auth
+#%PAM-1.0
+# This file is auto-generated.
+# User changes will be destroyed the next time authconfig is run.
+auth        required      pam_env.so
+auth        sufficient    pam_unix.so likeauth nullok
+auth        sufficient    pam_ldap.so use_first_pass
+auth        requisite     pam_succeed_if.so uid >= 500 quiet
+auth        required      pam_deny.so
+
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so md5 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+-session     optional      pam_systemd.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+EOPPA
+
 /bin/cat<<EOPSA>/etc/pam.d/system-auth
 #%PAM-1.0
 # This file is auto-generated.
 # User changes will be destroyed the next time authconfig is run.
-auth        required      /lib/security/$ISA/pam_env.so
-auth        sufficient    /lib/security/$ISA/pam_unix.so likeauth nullok
-auth        sufficient    /lib/security/$ISA/pam_ldap.so use_first_pass
-auth        required      /lib/security/$ISA/pam_deny.so
+auth        required      pam_env.so
+auth        sufficient    pam_unix.so likeauth nullok
+auth        sufficient    pam_ldap.so use_first_pass
+auth        required      pam_deny.so
 
-account     required      /lib/security/$ISA/pam_unix.so broken_shadow
-account     sufficient    /lib/security/$ISA/pam_localuser.so
-account     sufficient    /lib/security/$ISA/pam_localuser.so
-account     sufficient    /lib/security/$ISA/pam_succeed_if.so uid < 100 quiet
-account     [default=bad success=ok user_unknown=ignore] /lib/security/$ISA/pam_ldap.so
-account     required      /lib/security/$ISA/pam_permit.so
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
 
-password    requisite     /lib/security/$ISA/pam_cracklib.so retry=3
-password    sufficient    /lib/security/$ISA/pam_unix.so nullok use_authtok md5 shadow
-password    sufficient    /lib/security/$ISA/pam_ldap.so use_authtok
-password    required      /lib/security/$ISA/pam_deny.so
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so md5 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
 
-session     required      /lib/security/$ISA/pam_limits.so
-session     required      /lib/security/$ISA/pam_unix.so
-session     optional      /lib/security/$ISA/pam_ldap.so
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+-session     optional      pam_systemd.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
 EOPSA
 
 /bin/cat<<EOCAC>/etc/ssl/ca.cert
@@ -151,7 +203,7 @@ Certificate:
         Validity
             Not Before: Dec 24 18:34:42 2008 GMT
             Not After : Dec 24 18:34:42 2011 GMT
-        Subject: C=US, ST=Tennessee, O=EFT Source, OU=Intermediate Certificate Authority, CN=mid-ca.[% domainname %]/emailAddress=certificate.authority@[% domainname %]
+        Subject: C=US, ST=Tennessee, O=EFT Source, OU=Intermediate Certificate Authority, CN=mid-ca.eftdomain.net/emailAddress=certificate.authority@eftdomain.net
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
             RSA Public Key: (4096 bit)
@@ -314,110 +366,21 @@ cat<<EOF>/etc/skel/.inputrc
 set prefer-visible-bell
 EOF
 
-# VMware fixups
-/sbin/lspci | /bin/grep VMware && \
-/bin/cat<<EOVMFX>>/usr/local/sbin/firstrun
-/usr/bin/yum install -y VMwareTools
-/bin/chmod 755 /etc/rc.d/init.d/vmware-tools
-/usr/bin/vmware-config-tools.pl default 
-/etc/init.d/network stop
-/sbin/rmmod vmxnet
-/sbin/rmmod pcnet32
-/sbin/depmod -a
-/sbin/modprobe vmxnet
-/etc/init.d/network start
-EOVMFX
-
 /bin/mkdir -p /root/.ssh
 /bin/cat<<EOSSH>/root/.ssh/authorized_keys
-ssh-dss AAAAB3NzaC1kc3MAAACBAMD9NpxSX+ItJAny7BWfcseuXSo1kH9DgqZNtHqXMlp0CEGWZNlRoW5kHWcsXgiH+QTrP1C+eJoqWetU/s/85rbzU7lxl1dI3oGKSs4iXR67p4EAI1mJJCM3I1XaXOMEbjxHeeMpp5Qz4o6tWPjjnd2beQsfPpcLYDAPQ6LLU0RhAAAAFQDp50PYLRXrcSWbLDrep+F3ry3/qwAAAIEAoLtlBcFcqJ7C4RHL2itVmkHKIc/9X3CMn2BAGEhAF7xZQVYSd5kn1AJT0mEqxbTWBeQvbMyHGlNIJgMyrbEYlXesIJs4PvOWmgnHIyg+FUXQ5bLlHjwqUq2ocdZmaajJbMOXuB2StyKYNUZPpRj6GNOi/cv3vC6LygkBiSTQPloAAACBAJQLTbnWdgPBsgHAclwz1iHlkljYMIKseHdJK+zDzsqL3JfwD4h9d1CZXcigv1LQ+hzo/3xMwuBuu7lrpi5ylqk62irkBOVNAWtPB/y5sb86OAphR7PEsnIph4JO7EJ50XwsI1+t7L+MniijPT+YAh6n5MoQxIqCRny/GrEflYEU root@newton.[% domainname %]
+ssh-dss AAAAB3NzaC1kc3MAAACBAMD9NpxSX+ItJAny7BWfcseuXSo1kH9DgqZNtHqXMlp0CEGWZNlRoW5kHWcsXgiH+QTrP1C+eJoqWetU/s/85rbzU7lxl1dI3oGKSs4iXR67p4EAI1mJJCM3I1XaXOMEbjxHeeMpp5Qz4o6tWPjjnd2beQsfPpcLYDAPQ6LLU0RhAAAAFQDp50PYLRXrcSWbLDrep+F3ry3/qwAAAIEAoLtlBcFcqJ7C4RHL2itVmkHKIc/9X3CMn2BAGEhAF7xZQVYSd5kn1AJT0mEqxbTWBeQvbMyHGlNIJgMyrbEYlXesIJs4PvOWmgnHIyg+FUXQ5bLlHjwqUq2ocdZmaajJbMOXuB2StyKYNUZPpRj6GNOi/cv3vC6LygkBiSTQPloAAACBAJQLTbnWdgPBsgHAclwz1iHlkljYMIKseHdJK+zDzsqL3JfwD4h9d1CZXcigv1LQ+hzo/3xMwuBuu7lrpi5ylqk62irkBOVNAWtPB/y5sb86OAphR7PEsnIph4JO7EJ50XwsI1+t7L+MniijPT+YAh6n5MoQxIqCRny/GrEflYEU root@newton.eftdomain.net
 ssh-dss AAAAB3NzaC1kc3MAAACBAOSj6BYhmySoAuqMTLC0rwB8vU64d3JW3gyAXVTXaaPsejKopUgqRLeSNJQ3lxJZuvO7dRjUEJj9LOd2kdWBt3e231TOfMjwhXO7AIKPCEcp8OtlOyL/8DIz35zILIa3BCfiJjP+cUXvsWy/vV+k5hX2hkP9oV6okG1v96KbsF/nAAAAFQC+Q/JFOTmgtK8Itw0/dpjbVnR1jQAAAIEAlAKMSkcIppBjWUJEuffC8DtKRMrzlHDItKtfB0vK+JgpHIkLibVLLGAEYN+0ndalUK0XW9ZJBSNdanfiUQV5mGHaxnAHtq4YuRku6CfVBppmZGMNYl0qnrDyzXhBmkLK+A2Q2W46km/HjL28QMrAfqgo5lmPSWk8VT/2OtkJgQsAAACBAKvPiorldxCZAKRL1LmOQ/2DvbJsiQJ4BFEsfBP7xwEmN6bOUF9zwTTz9tiv4PD3kLhBfP+bKlsuwLExvyBgsrKFBFxZoGMSLramN9NAZS8yqal7mgICPW8SFkXTx9jdyeNCs1sCIENJCumg5/K1ZPMzl6eusLZ2dyDqV3oNs8Xe whitejs@tyr
 ssh-dss AAAAB3NzaC1kc3MAAACBAP19c+Hma3tWYgoXSUT3JfIx7dY2PiQt1sjs1HPYEptz23zX0sn5Qtj9QvixJt7ocmIf/KZSqu3QkCTLsF0IypxDPzqVK4TK1m8Z9brMLehsF/DG+VKE/EIw9TAC0qtbpK4KnY6VQlgG74gcMrC6n9Fe5bh7HlhezKTaxUVVnlj/AAAAFQDYJiHebh2qpVAeJSZsicXkPp1QgQAAAIBHiWEQvJ9j9Ya8KQxjSgQOnIqJ1m2xO7++YDHXzjWTby+vlh2J3Z4xZzDhMEVyAcVc216Ebrs4wNIkJ3VJFiyGOeTYP1vk32DAjLaKihw56C3+uxkTSUU9pAuYbKKfdYlrQnncWHgG6+jDvcw+KVBzTD9IgLzb5cyQtqvLZUbi3wAAAIEAg+uIJQZubI0jiJdn7/xGIXPFFqKUtUYtJi9FzLbbkM8GpRwEEClPHah2eA627Y+XBZOctW/pQjyNgCo3+EJ2CE9sEeiDlv2tCEVrlfs5om1/9lTMQeIU5KsPIFzH/gQ6m2OGbXZMHmXjnqBrlsnpunXc+0Z1yVB+voyD175yql4= whitejs@balder
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAoGQlz+PPghTqtguFwb+q/0p4cfTrKjZoB5i8h1jrVnJieEIzDWm/zncJ4bNWg+2u74VFBDH0nYWkXEwVkCPJcPvk8GyY39VFSmnXoF7nN+W3opA0AL4aRx2caHC19VhdTVWEaoJXByamKvQOW2PMqL0ZEyR0DntG/fAAbYtkr2/84opEnFomfPkmlWE8z7rxLXC28x9h212zHTPsbuwLlB/p7foXmn1K2XlxPF88hhaqivUjpboBmSMSwpG3c9ZGicQOtFLXTeJ97SYkTswHYnRy+mH7GM5+0Jz1SYtRlLKRSgaaWEmapsDQP1TU9XoF36L2jrLF/PZoE0g2ECoOWQ== john@john-desktop
+
 EOSSH
+
 
 /bin/cat<<EOGO>>/usr/local/sbin/firstrun
 fpe=\$(/usr/sbin/vgdisplay vg_opt|/bin/grep "Free *PE"|/usr/bin/awk '{print \$5}')
 /usr/sbin/lvextend /dev/vg_opt/opt -l +\${fpe}
 resize2fs -p /dev/vg_opt/opt &
 EOGO
-
-/sbin/lspci | /bin/grep VMware && /bin/cat<<EOXOC>/etc/X11/xorg.conf
-# Xorg configuration created by system-config-display
-Section "ServerLayout"
-	Identifier     "single head configuration"
-	Screen      0  "Screen0" 0 0
-	InputDevice    "Keyboard0" "CoreKeyboard"
-EndSection
-Section "InputDevice"
-	Identifier  "Keyboard0"
-	Driver      "kbd"
-	Option	    "XkbModel" "pc105"
-	Option	    "XkbLayout" "us"
-EndSection
-Section "Device"
-	Identifier  "Videocard0"
-	Driver      "vmware"
-EndSection
-Section "Screen"
-	Identifier "Screen0"
-	Device     "Videocard0"
-	DefaultDepth     24
-	SubSection "Display"
-		Viewport   0 0
-		Depth     24
-	EndSubSection
-EndSection
-EOXOC
-
-# cfengine
-cat<<EOF>/var/cfengine/inputs/update.conf
-control:
-   actionsequence  = ( shellcommands copy processes tidy )
-   domain          = ( ExecResult(/bin/dnsdomainname) )
-   DefaultCopyType = ( checksum )
-   master_cfinput  = ( /var/cfengine/masterfiles/inputs )
-   master_cfmodule = ( /var/cfengine/masterfiles/modules )
-   AddInstallable  = ( new_cfenvd new_cfservd )
-   workdir         = ( /var/cfengine )
-   modbindir       = ( /usr/local/cfengine/modules )
-   linux::
-       cf_install_dir  = ( /usr/sbin )
-       SplayTime = ( 1 )
-       policyhost  = ( newton.[% domainname %] )
-
-copy:
-
-    \$(master_cfinput)           dest=\$(workdir)/inputs r=inf mode=600 type=binary
-                                exclude=*.lst exclude=*~ exclude=#* server=\$(policyhost) trustkey=true
-    \$(master_cfmodule)          dest=\$(modbindir) r=inf mode=700 type=binary
-                                exclude=*.lst exclude=*~ exclude=#* server=\$(policyhost) trustkey=true
-    \$(cf_install_dir)/cfagent   dest=\$(workdir)/bin/cfagent mode=755 backup=false type=checksum
-    \$(cf_install_dir)/cfservd   dest=\$(workdir)/bin/cfservd mode=755 backup=false type=checksum
-    \$(cf_install_dir)/cfexecd   dest=\$(workdir)/bin/cfexecd mode=755 backup=false type=checksum
-
-tidy:
-     \$(workdir)/outputs pattern=* age=7
-
-processes:
-     new_cfservd::
-        "cfservd" signal=term restart "/var/cfengine/bin/cfservd"
-     new_cfenvd::
-        "cfenvd" signal=kill restart "/var/cfengine/bin/cfenvd -H"
-
-shellcommands:
-    "/bin/bash -c \"if [ -h /var/cfengine/bin/cfagent ];then /bin/unlink /var/cfengine/bin/cfagent; fi\""
-EOF
-echo "/usr/sbin/cfexecd -F; /usr/sbin/cfexecd -F" >> /usr/local/sbin/firstrun
-
-grep -q "[% fqdn %]" /etc/hosts||echo "[% ip %] [% fqdn %] [% hostname %]" >> /etc/hosts
-
-cp /etc/sysconfig/network /etc/sysconfig/network.dist
-sed -e 's/HOSTNAME=[% fqdn %]/HOSTNAME=[% hostname %]/' /etc/sysconfig/network.dist > /etc/sysconfig/network
-
-/bin/cat<<EOFDS>>/usr/local/sbin/firstrun
-/bin/echo 60 > /proc/sys/net/ipv4/tcp_keepalive_time
-EOFDS
-
 
 # put the old rc.local back and fire off a reboot. (this needs to go last)
 /bin/cat<EOFIXUPS>> /usr/local/sbin/firstrun
@@ -427,9 +390,25 @@ if [ ! -f /etc/.firstrun_ran ];then
     reboot
 fi
 EOFIXUPS
+#   
+
+cat<<EOF>/etc/sysconfig/autohome
+AUTOHOME_HOME=/home
+AUTOHOME_TIMEOUT=660
+AUTOHOME_MODULE="/usr/lib/autodir/autohome.so"
+AUTOHOME_OPTIONS="realpath=/autohome,level=2,skel=/etc/skel,mode=0700"
+EOF
+
+cat<<EOF>/etc/sysconfig/autogroup
+AUTOGROUP_HOME=/group
+AUTOGROUP_TIMEOUT=300
+AUTOGROUP_MODULE="/usr/lib/autodir/autogroup.so"
+AUTOGROUP_OPTIONS="realpath=/autogroup,level=2,nopriv=false,mode=02070"
+EOF
 
 /sbin/chkconfig autohome on
 /sbin/chkconfig autogroup on
+/sbin/chkconfig nscd on
 /sbin/chkconfig ip6tables off
 if [ ! -h /usr/lib/autodir/autohome.so ];then
     (cd /usr/lib/autodir; /bin/ln -s autohome.so.1001.0.2 autohome.so)
@@ -444,3 +423,4 @@ fi
 /etc/init.d/autogroup start
 
 echo 'dd if=/dev/zero of=/dev/sda bs=512 count=1;reboot;exit' > /root/.bash_history
+%end
