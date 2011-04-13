@@ -1,0 +1,47 @@
+You will populate your kernels and initrds in here. They will be referenced from the menus in pxelinux.menus.
+
+
+find pxelinux.kernels -type f | head -40
+pxelinux.kernels/unattended.dist/bzImage
+pxelinux.kernels/unattended.dist/initrd
+pxelinux.kernels/centos5.4-live/vmlinuz0
+pxelinux.kernels/centos5.4-live/initrd0.img
+pxelinux.kernels/fedora-14/initrd.img
+pxelinux.kernels/fedora-14/vmlinuz
+pxelinux.kernels/redhat5.3/initrd.img
+pxelinux.kernels/redhat5.3/vmlinuz
+pxelinux.kernels/lenny/nfsroot/config-2.6.26-2-486-nfsroot
+pxelinux.kernels/lenny/nfsroot/System.map-2.6.26-2-486-nfsroot
+pxelinux.kernels/lenny/nfsroot/vmlinuz-2.6.26-2-486-nfsroot
+pxelinux.kernels/lenny/devel/vmlinuz-2.6.26-2-486
+pxelinux.kernels/lenny/devel/initrd.img-2.6.26-2-486
+pxelinux.kernels/lenny/installer/linux-i386
+pxelinux.kernels/lenny/installer/old/linux-i386
+pxelinux.kernels/lenny/installer/old/initrd.gz-i386
+pxelinux.kernels/lenny/installer/initrd.gz-i386
+pxelinux.kernels/centos5.5/initrd.img
+pxelinux.kernels/centos5.5/vmlinuz
+pxelinux.kernels/centos5.5/README
+pxelinux.kernels/centos5.4-desktop/vmlinuz0
+pxelinux.kernels/centos5.4-desktop/initrd0.img
+pxelinux.kernels/openfiler2.3/initrd.img
+pxelinux.kernels/openfiler2.3/vmlinuz
+pxelinux.kernels/openfiler2.3/README
+pxelinux.kernels/openfiler2.3/TRANS.TBL
+pxelinux.kernels/centos5.2/initrd.img
+pxelinux.kernels/centos5.2/vmlinuz
+pxelinux.kernels/com32/elf.c32
+pxelinux.kernels/com32/fancyhello.c32
+pxelinux.kernels/com32/hello.c32
+pxelinux.kernels/com32/localboot.c32
+pxelinux.kernels/com32/sdi.c32
+pxelinux.kernels/com32/mboot.c32
+pxelinux.kernels/com32/vesamenu.c32
+pxelinux.kernels/com32/resolv.c32
+pxelinux.kernels/com32/dmitest.c32
+pxelinux.kernels/com32/pmload.c32
+pxelinux.kernels/com32/ethersel.c32
+pxelinux.kernels/com32/linux.c32
+
+and so on ...
+

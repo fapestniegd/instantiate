@@ -1,0 +1,38 @@
+This is where the Template::Toolkit templates for pxe booting go.
+When you run dhcplinks, it will look in LDAP, and if, say a machine is in
+
+cn=CentOS 5,ou=Operating Systems,ou=Sets,dc=example,dc=org
+(the "ou=Operating Systems" is what it looks under) 
+
+and the machines "filename" in cn=DHCP is "pxelinux.install" (which is a symlink to pxelinux.0,
+but this is how we discern what to boot into install and what to boot from local disk (main_menu)
+
+then the install_centos_5.tpl  install_[% lower_case_underscore_replaces_spaces_distro %] will
+be used to template it out. this is so you can have
+
+cn=CentOS 5    -> install_centos_5.tpl
+cn=CentOS 5.4  -> install_centos_5.4.tpl
+cn=Fedora 14   -> install_fedora_14.tpl
+cn=Debian 5    -> install_debian_5.tpl
+cn=Debian 6    -> install_debian_6.tpl
+
+and so on..
+
+Then, just dropping that host's dn into that group, and then setting filename = "pxelinux.install" 
+and running dhpclinks is enough for the next boot to re-install the operating system. (assuming the
+kernels referenced in the template exist under pxelinux.kernels)
+
+Note: while the sytem is installing, just set the filename back to "pxelinux.0" and re-run dhcplinks, 
+and when the system reboots on install, the next boot will boot the local disk.
+
+
+So the 100% automated install goes like:
+
+1) Add to an cn under "ou=Operating Systems"
+2) Set DHCP filename to "pxelinux.install"
+3) Run dhcplinks (via wget dhcplinks.cgi)
+4) Power on the system (via the DRAC/ILO/VMware-API)
+5) Once it starts pinging (it's installing) set it's filename back to "pxelinux.0"
+6) Run dhcplinks a second time. (to set it's boot menu to not install by default)
+
+That's it.

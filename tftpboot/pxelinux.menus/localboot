@@ -1,0 +1,8 @@
+prompt 0
+noescape 1
+timeout 10
+default localboot
+
+label localboot
+    menu label Boot local hard disk
+    localboot 128

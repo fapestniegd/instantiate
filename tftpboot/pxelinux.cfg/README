@@ -1,0 +1,25 @@
+This directory is empty until you run dhcplinks.pl ,which  will create links based on what you have in LDAP for your hosts.
+
+The structure looks like so:
+01-00-50-56-b5-3f-5e -> ptolemy.example.org -> 192.168.2.192 -> C0A802C0 -> ../pxelinux.menus/main_menu
+
+The "01-00-50-56-b5-3f-5e" link is what pxe looks for first. the "C0A802C0" link is what it looks for next.
+The "ptolemy.example.org" and "192.168.2.192" links are just human readable forms.
+
+A script like the one below ( I call it "flink" ) will display the line above if you type "flink 01-00-50-56-b5-3f-5e".
+
+################################################################################
+# /usr/local/bin/flink
+#
+#!/bin/bash
+n="$1";
+D=$(dirname $1)
+cd ${D}
+while [ -L ${n} ]; do
+    echo -n "$n -> ";
+    n=$(ls -l ${n}| awk '{print $NF}');
+done;
+echo ${n}
+
+
+The actual menus are in pxelinux.menus, and they referece kernels/initrds that are in pxelinux.kernels
