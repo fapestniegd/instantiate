@@ -5,7 +5,10 @@ skipx
 network --device eth0 --bootproto static --ip [% ip %] --netmask 255.255.255.0 --gateway [% gateway %] --nameserver [% nameservers %] --hostname [% fqdn %]
 
 url --url https://packages.[% domainname %]/mirrors/fedora/latest/14/Fedora/i386/os --noverifyssl
-repo --name=Everything --baseurl=https://packages.lab.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
+
+# This line complains about a corrupted repomd.xml even from a fresh rsync:
+# repo --name=Everything --baseurl=https://packages.lab.[% domainname %]/mirrors/fedora/latest/14/Everything/i386/os --noverifyssl
+
 rootpw --iscrypted  [% rootpw %]
 firewall --enabled
 authconfig --enableshadow --enablemd5 
