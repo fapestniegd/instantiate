@@ -215,6 +215,7 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         $symlink_exists = eval { symlink($h->{'fixed-address'},$h->{'id'}); 1};
         $symlink_exists = eval { symlink($hexval,$h->{'fixed-address'}); 1};
         unlink $hexval if(-l $hexval);
+        if(-l $hexval){ print "$hexval failed to unlink\n"};
         # Template out our OS PXE menu
         if(($h->{'filename'} eq '"pxelinux.install"') && defined($h->{'os'})){
             my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});

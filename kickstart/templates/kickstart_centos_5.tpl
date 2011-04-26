@@ -422,6 +422,14 @@ cp /etc/sysconfig/network /etc/sysconfig/network.dist
 sed -e 's/HOSTNAME=[% fqdn %]/HOSTNAME=[% hostname %]/' /etc/sysconfig/network.dist > /etc/sysconfig/network
 
 /bin/cat<<EOFDS>>/usr/local/sbin/firstrun
+/usr/bin/yum clean all && /usr/bin/yum install -y cfengine-community ntp
+/usr/sbin/ntpdate 0.pool.ntp.org
+/sbin/hwclock --systohc
+# scp root@newton.eftdomain.net:/var/cfengine/inputs/{failsafe,update}.cf /var/cfengine/inputs/
+# /usr/local/sbin/cf-agent -vK --bootstrap
+# /usr/local/sbin/cf-agent -vK
+
+
 /bin/echo 60 > /proc/sys/net/ipv4/tcp_keepalive_time
 EOFDS
 

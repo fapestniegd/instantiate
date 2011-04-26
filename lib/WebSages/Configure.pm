@@ -841,7 +841,7 @@ sub wait_for_reboot{
 sub wait_for_down{
     my $self = shift;
     my $cb = shift if @_;
-    my $p = Net::Ping->new("icmp");
+    my $p = Net::Ping->new();
     my $ip;
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     while( $p->ping( $ip ) ){
@@ -856,7 +856,7 @@ sub wait_for_up{
     my $cb = shift if @_;
     my $ip;
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
-    my $p = Net::Ping->new("icmp");
+    my $p = Net::Ping->new();
     while(! $p->ping( $ip ) ){
         print STDERR "$ip is still down. Waiting for up.\n";
         sleep 3;
