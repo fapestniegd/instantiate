@@ -120,27 +120,28 @@ sub ldap_dhcp_install{
         }
     }else{
         print STDERR "no entry cn=$self->{'fqdn'} in $self->{'dhcp_basedn'} with scope sub\n";
-        # create new entry
-         $entry = Net::LDAP::Entry->new ( 
-                                          "cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}",
-                                          'cn'             => "$cb->{'fqdn'}",
-                                          'objectClass'    => [
-                                                                "top",
-                                                                "dhcpHost",
-                                                                "dhcpOptions",
-                                                              ],
-                                           'dhcpHWAddress' => $new_macs,
-                                           'dhcpStatements'=> [
-                                                                "filename \"$filename\"",
-                                                                "fixed-address $cb->{'ipaddress'}",
-                                                                "next-server 192.168.1.217",
-                                                                "use-host-decl-names on",
-                                                              ],
-                                           'dhcpOption'    => [
-                                                                "option-233 = \"$cb->{'hostname'}\"",
-                                                                "routers 192.168.13.1",
-                                                                "subnet-mask 255.255.255.0"
-                                                              ]
+         # create new entry
+         $entry = Net::LDAP::Entry->new;
+         $entry = Net::LDAP::Entry->dn("cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}");
+         $entry = Net::LDAP::Entry->add( 
+                                         'cn'             => "$cb->{'fqdn'}",
+                                         'objectClass'    => [
+                                                               "top",
+                                                               "dhcpHost",
+                                                               "dhcpOptions",
+                                                             ],
+                                          'dhcpHWAddress' => $new_macs,
+                                          'dhcpStatements'=> [
+                                                               "filename \"$filename\"",
+                                                               "fixed-address $cb->{'ipaddress'}",
+                                                               "next-server 192.168.1.217",
+                                                               "use-host-decl-names on",
+                                                             ],
+                                          'dhcpOption'    => [
+                                                               "option-233 = \"$cb->{'hostname'}\"",
+                                                               "routers 192.168.13.1",
+                                                               "subnet-mask 255.255.255.0"
+                                                             ]
                                         );
     }
     # update the entry

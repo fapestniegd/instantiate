@@ -66,11 +66,7 @@ chmod 755 /etc/rc.local
 
 /bin/rm /etc/yum.repos.d/*.repo
 /bin/cat<<EOREPO>/etc/yum.repos.d/eftsource.repo
-[centos54-eftsource]
-name=EFTSOURCE primary CentOS 5.4 Repository
-baseurl=http://192.168.1.217/centos/5.4/testing/i386/CentOS
-enabled=1
-gpgcheck=0
+[% INCLUDE yum_repos.tpl %]
 EOREPO
 /bin/chmod 644 /etc/yum.repos.d/eftsource.repo
 
@@ -94,6 +90,14 @@ tls_reqcert allow
 tls_checkpeer no
 pam_password md5
 pam_check_host_attr yes
+
+nss_initgroups_ignoreusers root,ldap,named,avahi,haldaemon,dbus
+bind_timeout 2
+nss_reconnect_tries 2
+nss_reconnect_sleeptime 1
+nss_reconnect_maxsleeptime 3
+nss_reconnect_maxconntries 3
+bind_policy soft
 EOLDC
 
 /bin/cat<<EONSS>/etc/nsswitch.conf
