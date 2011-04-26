@@ -259,6 +259,7 @@ my $vars = {
              'domainname'  => $domain,
              'nameservers' => '192.168.1.54',
              'rootpw'      => '$1$/TWX24ae$82zOJF5hk.IiKw8PbMKoP0',
+             'ldap_srvs'   => 'ldaps://maxwell.eftdomain.net:636 ldaps://faraday.eftdomain.net:636',
            };
 my $content;
 $template->process($tpl_file, $vars, \$content);

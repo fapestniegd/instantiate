@@ -79,7 +79,7 @@ EOSEL
 ########### LDAP ########### 
 /bin/cat<<EOLDC>/etc/ldap.conf
 base dc=eftdomain,dc=net
-uri ldaps://maxwell.[% domainname %]:636 ldaps://faraday.[% domainname %]:636
+uri [% ldap_srvs %]
 timelimit 120
 bind_timelimit 120
 idle_timelimit 3600
@@ -117,6 +117,10 @@ publickey:  files
 automount:  files ldap
 aliases:    files
 EONSS
+
+/bin/cat<<EORSC>/etc/resolv.conf
+[% INCLUDE resolv.conf.tpl %]
+EORSC
 
 /bin/cat<<EOPSA>/etc/pam.d/system-auth
 #%PAM-1.0
