@@ -430,6 +430,18 @@ EOFDS
 /bin/mv /etc/rc.local.dist /etc/rc.local
 /usr/bin/yum clean all
 /usr/bin/yum update -y
+
+/usr/bin/yum install -y cfengine-community
+/usr/bin/yum install -y ntpd
+/usr/sbin/ntpdate 0.pool.ntp.org
+/sbin/hwclock --systohc
+
+# how to do this elegantly?
+# scp root@newton.eftdomain.net:/var/cfengine/inputs/{update,failsafe}.cf /var/cfengine/inputs/
+# cf-agent -vK --bootstrap
+# cf-agent -vK
+
+
 if [ ! -f /etc/.firstrun_ran ];then
     touch /etc/.firstrun_ran
     reboot
