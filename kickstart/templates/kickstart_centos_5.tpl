@@ -425,10 +425,11 @@ sed -e 's/HOSTNAME=[% fqdn %]/HOSTNAME=[% hostname %]/' /etc/sysconfig/network.d
 /bin/echo 60 > /proc/sys/net/ipv4/tcp_keepalive_time
 EOFDS
 
-
 # put the old rc.local back and fire off a reboot. (this needs to go last)
 /bin/cat<EOFIXUPS>> /usr/local/sbin/firstrun
 /bin/mv /etc/rc.local.dist /etc/rc.local
+/usr/bin/yum clean all
+/usr/bin/yum update -y
 if [ ! -f /etc/.firstrun_ran ];then
     touch /etc/.firstrun_ran
     reboot
