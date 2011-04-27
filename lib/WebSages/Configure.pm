@@ -846,7 +846,7 @@ use Net::Ping::External qw(ping);
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     my $alive = ping( host => $ip );
     while( $alive == 1 ){
-        print STDERR "$ip is still up [alive = $alive]. Waiting for down.\n";
+        print STDERR "$ip is still up. Waiting for down.\n";
         sleep 3;
         $alive = ping( host => $ip );
     }
@@ -861,7 +861,7 @@ use Net::Ping::External qw(ping);
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     my $alive = ping( host => $ip );
     while( $alive != 1 ){
-        print STDERR "$ip is still down [alive = $alive]. Waiting for up.\n";
+        print STDERR "$ip is still down. Waiting for up.\n";
         sleep 3;
         $alive = ping( host => $ip );
     }
