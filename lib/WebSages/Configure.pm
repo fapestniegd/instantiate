@@ -810,7 +810,8 @@ sub update_dns{
 sub wait_for_ssh{
     my $self=shift;
     my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    my $ip;
+    (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     my $hostname;
     my $count=0;
     my $got_hostname=0;
@@ -819,7 +820,7 @@ sub wait_for_ssh{
         for(my $i=0; $i<$count; $i++){ print "."; }
         print "\n" if($count>0);
         $count++;
-        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} hostname|");
+        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$ip hostname|");
         chomp(my $hostname=<SSH>);
         close(SSH);
         $got_hostname=1 if($hostname); 
@@ -845,7 +846,7 @@ use Net::Ping::External qw(ping);
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     my $alive = ping( host => $ip );
     while( $alive == 1 ){
-        print STDERR "$ip is still down [$alive]. Waiting for up.\n";
+        print STDERR "$ip is still up [alive = $alive]. Waiting for down.\n";
         sleep 3;
         $alive = ping( host => $ip );
     }
@@ -860,7 +861,7 @@ use Net::Ping::External qw(ping);
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
     my $alive = ping( host => $ip );
     while( $alive != 1 ){
-        print STDERR "$ip is still down [$alive]. Waiting for up.\n";
+        print STDERR "$ip is still down [alive = $alive]. Waiting for up.\n";
         sleep 3;
         $alive = ping( host => $ip );
     }
