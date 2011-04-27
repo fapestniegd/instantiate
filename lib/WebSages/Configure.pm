@@ -1,7 +1,6 @@
 package WebSages::Configure;
 use GitHub::Mechanize;
 use Net::LDAP;
-use Net::Ping;
 use File::Temp qw/ tempfile tempdir cleanup /;
 
 sub new{
@@ -839,29 +838,32 @@ sub wait_for_reboot{
 
 # use the ipaddress here or it will cache in DNS
 sub wait_for_down{
+use Net::Ping::External qw(ping);
     my $self = shift;
     my $cb = shift if @_;
-    my $p = Net::Ping->new();
     my $ip;
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
-    while( $p->ping( $ip ) ){
-        print STDERR "$ip is still up. Waiting for down.\n";
+    my $alive = ping( host => $ip );
+    while( $alive == 1 ){
+        print STDERR "$ip is still down [$alive]. Waiting for up.\n";
         sleep 3;
+        $alive = ping( host => $ip );
     }
-    $p->close();
+    return $self;
 }
 
 sub wait_for_up{
+use Net::Ping::External qw(ping);
     my $self = shift;
     my $cb = shift if @_;
     my $ip;
     (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
-    my $p = Net::Ping->new();
-    while(! $p->ping( $ip ) ){
-        print STDERR "$ip is still down. Waiting for up.\n";
+    my $alive = ping( host => $ip );
+    while( $alive != 1 ){
+        print STDERR "$ip is still down [$alive]. Waiting for up.\n";
         sleep 3;
+        $alive = ping( host => $ip );
     }
-    $p->close();
     return $self;
 }
 
