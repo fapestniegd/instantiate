@@ -815,15 +815,16 @@ sub wait_for_ssh{
     my $hostname;
     my $count=0;
     my $got_hostname=0;
-    while(($got_hostname == 0)&&($count <= 10)){
-        print STDERR "ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$ip hostname|\n";
+    while(($got_hostname == 0)&&($count <= 20)){
         print STDERR "Waiting for ssh login: " if($count > 0);
-        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$ip hostname|");
+        # use keyauth or fail.
+        open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no -o PasswordAuthentication=no root\@$ip hostname|");
         chomp(my $hostname=<SSH>);
         close(SSH);
+
         print STDERR "hostname: $hostname\n";
         $got_hostname = 1 if($hostname ne ""); 
-        #sleep 20 unless $got_hostname;
+        sleep 10 unless $got_hostname;
         $count++;
     }
     return $self;

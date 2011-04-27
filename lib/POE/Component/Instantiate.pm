@@ -105,20 +105,20 @@ sub redeploy {
     my $type = $self->{'actions'};
     if($type eq 'VMware::ESX'){
         $heap->{'actions'} = [ 
-#                               "wc:disable_monitoring",       # supress monitoring for the host
-#                               "sp:shutdown",                  # power off the node
-#                               "sp:destroy",                   # delete the node from disk
-##                               "wc:clean_keys",              # remove exitsing trusted keys (cfengine ppkeys)
-##                               "wc:update_AD_DNS",           # update Active Directory DNS with the host's IP
-#                               "sp:deploy",                    # deploy the new host
-#                               "sp:get_macaddrs",              # get the MAC address from the API
-#                               "wc:ldap_dhcp_install",         # updated the MAC address in LDAP, set do boot pxe
-#                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
-#                               "sp:startup",                   # power on the vm (it should PXE by default)
-#                               "wc:wait_for_up",               # while we install...
-#                               "wc:ldap_dhcp_local",           #   set the ou=DHCP to boot locally
-#                               "wc:dhcplinks",                 #   and call dhcplinks.cgi again to point it to localboot 
-#                               "wc:wait_for_reboot",             # kickstart will reboot the node
+                               "wc:disable_monitoring",       # supress monitoring for the host
+                               "sp:shutdown",                  # power off the node
+                               "sp:destroy",                   # delete the node from disk
+#                               "wc:clean_keys",              # remove exitsing trusted keys (cfengine ppkeys)
+#                               "wc:update_AD_DNS",           # update Active Directory DNS with the host's IP
+                               "sp:deploy",                    # deploy the new host
+                               "sp:get_macaddrs",              # get the MAC address from the API
+                               "wc:ldap_dhcp_install",         # updated the MAC address in LDAP, set do boot pxe
+                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
+                               "sp:startup",                   # power on the vm (it should PXE by default)
+                               "wc:wait_for_up",               # while we install...
+                               "wc:ldap_dhcp_local",           #   set the ou=DHCP to boot locally
+                               "wc:dhcplinks",                 #   and call dhcplinks.cgi again to point it to localboot 
+                               "wc:wait_for_reboot",             # kickstart will reboot the node
                                "wc:wait_for_ssh",              # wait until ssh is available 
 #                               "wc:post_config",               # log in and do any post configuration
 #                               "wc:inspect_config",            # poke around and make sure everything looks good
