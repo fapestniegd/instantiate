@@ -217,14 +217,19 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         unlink $hexval if(-l $hexval);
         if(-l $hexval){ print "$hexval failed to unlink\n"};
         # Template out our OS PXE menu
-        if(($h->{'filename'} eq '"pxelinux.install"') && defined($h->{'os'})){
-            my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
-            my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
-            my $vars = { 'fqdn' => $h->{'id'}, 'domainname' => $cfg->{'domain'} };
-            $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
-            $symlink_exists = eval { symlink("../pxelinux.menus/install_$h->{'id'}",$hexval); 1};
+        if($h->{'filename'} eq '"pxelinux.install"'){
+            if(defined($h->{'os'})){
+                my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
+                my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
+                my $vars = { 'fqdn' => $h->{'id'}, 'domainname' => $cfg->{'domain'} };
+                $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
+                $symlink_exists = eval { symlink("../pxelinux.menus/install_$h->{'id'}",$hexval); 1};
+            }else{
+                print STDERR "$h->{'id'} is set to install but has not Operating System Defined.\n";
+                $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
+            }
         }else{
-            $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
+           $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
         }
         $hexval='';
     }
