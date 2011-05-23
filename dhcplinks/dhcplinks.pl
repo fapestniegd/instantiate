@@ -217,6 +217,12 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         unlink $hexval if(-l $hexval);
         if(-l $hexval){ print "$hexval failed to unlink\n"};
         # Template out our OS PXE menu
+
+#if( $h->{'id'} eq "skrs0020.eftdomain.net"){
+#    print STDERR $h->{'filename'}."\n";
+#    print STDERR "OS: ".$h->{'os'}."\n";
+#    print STDERR $h->{'fixed-address'}."->".$hexval."\n";
+#}
         if($h->{'filename'} eq '"pxelinux.install"'){
             if(defined($h->{'os'})){
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
