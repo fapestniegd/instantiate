@@ -1,6 +1,7 @@
 package WebSages::Configure;
 use GitHub::Mechanize;
 use Net::LDAP;
+use Net::LDAP::Entry;
 use File::Temp qw/ tempfile tempdir cleanup /;
 
 sub new{
@@ -120,9 +121,11 @@ sub ldap_dhcp_install{
     }else{
         print STDERR "no entry cn=$self->{'fqdn'} in $self->{'dhcp_basedn'} with scope sub\n";
          # create new entry
-         $entry = Net::LDAP::Entry->new;
-         $entry = Net::LDAP::Entry->dn("cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}");
-         $entry = Net::LDAP::Entry->add( 
+         $entry = Net::LDAP::Entry->new();;
+         $entry->dn("cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}");
+         my $router=$cb->{'ipaddress'};
+         $router=~s/\.[^\.]$/\.1/;
+         $entry->add( 
                                          'cn'             => "$cb->{'fqdn'}",
                                          'objectClass'    => [
                                                                "top",
@@ -138,7 +141,7 @@ sub ldap_dhcp_install{
                                                              ],
                                           'dhcpOption'    => [
                                                                "option-233 = \"$cb->{'hostname'}\"",
-                                                               "routers 192.168.13.1",
+                                                               "routers $router",
                                                                "subnet-mask 255.255.255.0"
                                                              ]
                                         );

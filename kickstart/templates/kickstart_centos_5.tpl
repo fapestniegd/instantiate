@@ -457,16 +457,18 @@ EOFIXUPS
 /sbin/chkconfig autohome on
 /sbin/chkconfig autogroup on
 /sbin/chkconfig ip6tables off
-if [ ! -h /usr/lib/autodir/autohome.so ];then
-    (cd /usr/lib/autodir; /bin/ln -s autohome.so.1001.0.2 autohome.so)
-fi
-if [ ! -h /usr/lib/autodir/autogroup.so ];then
-    (cd /usr/lib/autodir; /bin/ln -s autogroup.so.1001.0.2 autogroup.so)
-fi
-if [ ! -h /usr/lib/autodir/automisc.so ];then
-    (cd /usr/lib/autodir; /bin/ln -s automisc.so.1001.0.2 automisc.so)
-fi
-/etc/init.d/autohome start
-/etc/init.d/autogroup start
+
+# Autodir is not in the deployment repository
+#if [ ! -h /usr/lib/autodir/autohome.so ];then
+#    (cd /usr/lib/autodir; /bin/ln -s autohome.so.1001.0.2 autohome.so)
+#fi
+#if [ ! -h /usr/lib/autodir/autogroup.so ];then
+#    (cd /usr/lib/autodir; /bin/ln -s autogroup.so.1001.0.2 autogroup.so)
+#fi
+#if [ ! -h /usr/lib/autodir/automisc.so ];then
+#    (cd /usr/lib/autodir; /bin/ln -s automisc.so.1001.0.2 automisc.so)
+#fi
+#/etc/init.d/autohome start
+#/etc/init.d/autogroup start
 
 echo 'dd if=/dev/zero of=/dev/sda bs=512 count=1;reboot;exit' > /root/.bash_history
