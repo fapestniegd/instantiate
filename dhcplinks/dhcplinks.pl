@@ -218,16 +218,17 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         if(-l $hexval){ print "$hexval failed to unlink\n"};
         # Template out our OS PXE menu
 
-#if( $h->{'id'} eq "skrs0020.eftdomain.net"){
-#    print STDERR $h->{'filename'}."\n";
-#    print STDERR "OS: ".$h->{'os'}."\n";
-#    print STDERR $h->{'fixed-address'}."->".$hexval."\n";
-#}
         if($h->{'filename'} eq '"pxelinux.install"'){
             if(defined($h->{'os'})){
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
                 my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
-                my $vars = { 'fqdn' => $h->{'id'}, 'domainname' => $cfg->{'domain'} };
+                $hostname=$h->{'id'};
+                $hostname=~s/\..*//;
+                my $vars = { 
+                             'hostname'   => $hostname, 
+                             'fqdn'       => $h->{'id'}, 
+                             'domainname' => $cfg->{'domain'} 
+                           };
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
                 $symlink_exists = eval { symlink("../pxelinux.menus/install_$h->{'id'}",$hexval); 1};
             }else{
