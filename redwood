@@ -1,0 +1,10 @@
+#!/bin/bash
+clear;
+env DOMAIN='eftdomain.net'                                 \
+    LDAP_URI='ldaps://faraday.eftdomain.net:636'           \
+    BASE_DN='dc=eftdomain,dc=net'                          \
+    BIND_DN='uid=jameswhite,ou=People,dc=eftdomain,dc=net' \
+    LDAP_PASSWORD='S0l4r1s!'                               \
+    WINDOWS_USERNAME='jameswhite'                          \
+    WINDOWS_PASSWORD='C4lc11l4t0r'                         \
+    ./redwood.pl
