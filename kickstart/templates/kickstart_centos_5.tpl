@@ -58,9 +58,14 @@ EOFB
 chmod 744 /usr/local/sbin/firstrun
 /bin/ln -s /usr/bin/perl /usr/local/bin/perl 
 
+################################################################################
+# move rc.local out of the way for our version that runs fixups once
+/bin/cp /etc/rc.local /etc/rc.local.dist
 /bin/cat<<EORCL>/etc/rc.local
 #!/bin/bash
-/usr/local/sbin/firstrun
+if [ ! -f "/etc/.firstrun_ran" ];then 
+    /usr/local/sbin/firstrun
+fi
 EORCL
 chmod 755 /etc/rc.local
 
@@ -374,101 +379,66 @@ Section "Screen"
 EndSection
 EOXOC
 
-# cfengine
-cat<<EOF>/var/cfengine/inputs/update.conf
-control:
-   actionsequence  = ( shellcommands copy processes tidy )
-   domain          = ( ExecResult(/bin/dnsdomainname) )
-   DefaultCopyType = ( checksum )
-   master_cfinput  = ( /var/cfengine/masterfiles/inputs )
-   master_cfmodule = ( /var/cfengine/masterfiles/modules )
-   AddInstallable  = ( new_cfenvd new_cfservd )
-   workdir         = ( /var/cfengine )
-   modbindir       = ( /usr/local/cfengine/modules )
-   linux::
-       cf_install_dir  = ( /usr/sbin )
-       SplayTime = ( 1 )
-       policyhost  = ( newton.[% domainname %] )
-
-copy:
-
-    \$(master_cfinput)           dest=\$(workdir)/inputs r=inf mode=600 type=binary
-                                exclude=*.lst exclude=*~ exclude=#* server=\$(policyhost) trustkey=true
-    \$(master_cfmodule)          dest=\$(modbindir) r=inf mode=700 type=binary
-                                exclude=*.lst exclude=*~ exclude=#* server=\$(policyhost) trustkey=true
-    \$(cf_install_dir)/cfagent   dest=\$(workdir)/bin/cfagent mode=755 backup=false type=checksum
-    \$(cf_install_dir)/cfservd   dest=\$(workdir)/bin/cfservd mode=755 backup=false type=checksum
-    \$(cf_install_dir)/cfexecd   dest=\$(workdir)/bin/cfexecd mode=755 backup=false type=checksum
-
-tidy:
-     \$(workdir)/outputs pattern=* age=7
-
-processes:
-     new_cfservd::
-        "cfservd" signal=term restart "/var/cfengine/bin/cfservd"
-     new_cfenvd::
-        "cfenvd" signal=kill restart "/var/cfengine/bin/cfenvd -H"
-
-shellcommands:
-    "/bin/bash -c \"if [ -h /var/cfengine/bin/cfagent ];then /bin/unlink /var/cfengine/bin/cfagent; fi\""
-EOF
-echo "/usr/sbin/cfexecd -F; /usr/sbin/cfexecd -F" >> /usr/local/sbin/firstrun
-
+# Edit /etc/hosts
 grep -q "[% fqdn %]" /etc/hosts||echo "[% ip %] [% fqdn %] [% hostname %]" >> /etc/hosts
 
+# Hostname fixes
 cp /etc/sysconfig/network /etc/sysconfig/network.dist
 sed -e 's/HOSTNAME=[% fqdn %]/HOSTNAME=[% hostname %]/' /etc/sysconfig/network.dist > /etc/sysconfig/network
 
+# firstrun
+
+cp /etc/sysconfig/network /etc/sysconfig/network.dist
 /bin/cat<<EOFDS>>/usr/local/sbin/firstrun
 /usr/bin/yum clean all && /usr/bin/yum install -y cfengine-community ntp
 /usr/sbin/ntpdate 0.pool.ntp.org
 /sbin/hwclock --systohc
-# scp root@newton.eftdomain.net:/var/cfengine/inputs/{failsafe,update}.cf /var/cfengine/inputs/
-# /usr/local/sbin/cf-agent -vK --bootstrap
-# /usr/local/sbin/cf-agent -vK
-
 
 /bin/echo 60 > /proc/sys/net/ipv4/tcp_keepalive_time
 EOFDS
 
-# put the old rc.local back and fire off a reboot. (this needs to go last)
+################################################################################
+# Put the old rc.local back and fire off a reboot. (this needs to go last)     #
+#                                                                              #
+
 /bin/cat<EOFIXUPS>> /usr/local/sbin/firstrun
 /bin/mv /etc/rc.local.dist /etc/rc.local
+
+/sbin/chkconfig ip6tables off
+
+# Packages not in our install repository
 /usr/bin/yum clean all
 /usr/bin/yum update -y
-
-/usr/bin/yum install -y cfengine-community
-/usr/bin/yum install -y ntpd
-/usr/sbin/ntpdate 0.pool.ntp.org
-/sbin/hwclock --systohc
-
-# how to do this elegantly?
-# scp root@newton.eftdomain.net:/var/cfengine/inputs/{update,failsafe}.cf /var/cfengine/inputs/
-# cf-agent -vK --bootstrap
-# cf-agent -vK
-
-
-if [ ! -f /etc/.firstrun_ran ];then
-    touch /etc/.firstrun_ran
-    reboot
-fi
-EOFIXUPS
+/usr/bin/yum install -y cfengine-community autodir ntpd
 
 /sbin/chkconfig autohome on
 /sbin/chkconfig autogroup on
-/sbin/chkconfig ip6tables off
+if [ ! -h /usr/lib/autodir/autohome.so ];then
+    (cd /usr/lib/autodir; /bin/ln -s autohome.so.1001.0.2 autohome.so)
+fi
+if [ ! -h /usr/lib/autodir/autogroup.so ];then
+    (cd /usr/lib/autodir; /bin/ln -s autogroup.so.1001.0.2 autogroup.so)
+fi
+if [ ! -h /usr/lib/autodir/automisc.so ];then
+    (cd /usr/lib/autodir; /bin/ln -s automisc.so.1001.0.2 automisc.so)
+fi
+/etc/init.d/autohome start
+/etc/init.d/autogroup start
 
-# Autodir is not in the deployment repository
-#if [ ! -h /usr/lib/autodir/autohome.so ];then
-#    (cd /usr/lib/autodir; /bin/ln -s autohome.so.1001.0.2 autohome.so)
-#fi
-#if [ ! -h /usr/lib/autodir/autogroup.so ];then
-#    (cd /usr/lib/autodir; /bin/ln -s autogroup.so.1001.0.2 autogroup.so)
-#fi
-#if [ ! -h /usr/lib/autodir/automisc.so ];then
-#    (cd /usr/lib/autodir; /bin/ln -s automisc.so.1001.0.2 automisc.so)
-#fi
-#/etc/init.d/autohome start
-#/etc/init.d/autogroup start
+/usr/sbin/ntpdate 0.pool.ntp.org
+/sbin/hwclock --systohc
 
-echo 'dd if=/dev/zero of=/dev/sda bs=512 count=1;reboot;exit' > /root/.bash_history
+/usr/bin/curl -s cfengine/inputs | /bin/bash
+
+if [ ! -f /etc/.firstrun_ran ];then
+    touch /etc/.firstrun_ran
+    # reboot
+fi
+
+#                                                                              #
+#                                                                              #
+################################################################################
+EOFIXUPS
+
+# Use this for iterative re-kickstarts (not necessary with intanciate automated)
+# echo 'dd if=/dev/zero of=/dev/sda bs=512 count=1;reboot;exit' > /root/.bash_history
