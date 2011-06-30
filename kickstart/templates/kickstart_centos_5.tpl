@@ -401,7 +401,7 @@ EOFDS
 # Put the old rc.local back and fire off a reboot. (this needs to go last)     #
 #                                                                              #
 
-/bin/cat<EOFIXUPS>> /usr/local/sbin/firstrun
+/bin/cat<< EOFIXUPS >> /usr/local/sbin/firstrun
 /bin/mv /etc/rc.local.dist /etc/rc.local
 
 /sbin/chkconfig ip6tables off
@@ -435,10 +435,10 @@ if [ ! -f /etc/.firstrun_ran ];then
     # reboot
 fi
 
+EOFIXUPS
 #                                                                              #
 #                                                                              #
 ################################################################################
-EOFIXUPS
 
 # Use this for iterative re-kickstarts (not necessary with intanciate automated)
 # echo 'dd if=/dev/zero of=/dev/sda bs=512 count=1;reboot;exit' > /root/.bash_history
