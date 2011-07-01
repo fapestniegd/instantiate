@@ -175,8 +175,8 @@ the_needful(){
     echo "################################################################################" >> ${LOGFILE} 2>&1
     echo "# ${pkg}:  ">> ${LOGFILE} 2>&1
     echo "################################################################################" >> ${LOGFILE} 2>&1
-    try $line >> ${LOGFILE} 2>&1 #&
-    #spinner $!
+    try $line >> ${LOGFILE} 2>&1 &
+    spinner $!
     if [ $? -eq 0 ];then
         echo OK
         return 0;
@@ -202,8 +202,6 @@ the_needful(){
 # (cd vmware-vsphere-cli-distrib;./vmware-install.pl default)
 # (accept the license)
 ################################################################################
-
- 
 
 ################################################################################
 cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line;do the_needful $line||exit $?;done
@@ -348,6 +346,7 @@ try PMQS/IO-Compress-2.033.tar.gz
 try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
 try MAKAMAKA/JSON-2.53.tar.gz
 try INGY/YAML-0.73.tar.gz
+try CHORNY/Net-Ping-External-0.13.zip
 EOF
 
 ################################################################################
