@@ -195,6 +195,10 @@ try RCAPUTO/POE-1.311.tar.gz
     #try FLORA/Devel-GlobalDestruction-0.03.tar.gz
         try CHOCOLATE/Scope-Guard-0.20.tar.gz
     try FLORA/Devel-GlobalDestruction-0.03.tar.gz
+    #try DOY/Eval-Closure-0.06.tar.gz
+        try RJBS/Test-Fatal-0.006.tar.gz
+        try TOKUHIROM/Test-Requires-0.06.tar.gz
+        try DOY/Try-Tiny-0.09.tar.gz
     try DOY/Eval-Closure-0.06.tar.gz
     try ADAMK/List-MoreUtils-0.32.tar.gz
     try DROLSKY/Package-DeprecationManager-0.11.tar.gz
@@ -204,9 +208,6 @@ try RCAPUTO/POE-1.311.tar.gz
     try RJBS/Sub-Exporter-0.982.tar.gz
     try FLORA/Sub-Name-0.05.tar.gz
     try ADAMK/Task-Weaken-1.04.tar.gz
-    try RJBS/Test-Fatal-0.006.tar.gz
-    try TOKUHIROM/Test-Requires-0.06.tar.gz
-    try DOY/Try-Tiny-0.09.tar.gz
 try DOY/Moose-2.0010.tar.gz
 #try JKIM/Net-Amazon-EC2-0.14.tar.gz
     # try GRANTM/XML-Simple-2.18.tar.gz
