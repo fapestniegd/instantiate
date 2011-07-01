@@ -204,6 +204,8 @@ cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line
 try RCAPUTO/POE-1.311.tar.gz
 #try DOY/Moose-2.0010.tar.gz
     #try RJBS/Data-OptList-0.107.tar.gz
+        #try ADAMK/Params-Util-1.04.tar.gz
+            try MSCHWERN/ExtUtils-MakeMaker-6.56.tar.gz
         try ADAMK/Params-Util-1.04.tar.gz
         try RJBS/Sub-Install-0.925.tar.gz
     try RJBS/Data-OptList-0.107.tar.gz
