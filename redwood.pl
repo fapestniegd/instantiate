@@ -5,10 +5,14 @@ use strict;
 ################################################################################
 BEGIN { 
         my $libs = [
-                     "./lib",
                      "/usr/lib/vmware-vcli/apps",
                      "/usr/local/lib/vmware-vcli/apps",
+                     "./cpan/lib/perl5/5.8.8",
                      "./cpan/lib/perl5/site_perl/5.8.8",
+                     "./cpan/lib/perl5/i386-linux-thread-multi",
+                     "./cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
+                     "./cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
+                     "./lib",
                    ];
         foreach my $lib (@{ $libs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
       };

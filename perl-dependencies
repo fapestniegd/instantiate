@@ -87,6 +87,7 @@ try(){
 
     INCLUDES=" -I ${PREFIX}/lib/perl5/5.8.8"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/"
+    INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/i386-linux-thread-multi"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi/"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
     export INCLUDES
@@ -123,6 +124,7 @@ try(){
 
     PERL5LIB="${PREFIX}/lib/perl5/5.8.8"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/"
+    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/i386-linux-thread-multi"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
     export PERL5LIB
@@ -131,10 +133,10 @@ try(){
     if [ -f "${DIR}/Build.PL" ]; then
        export PERL5LIB
        echo
-       echo "BUILD COMMAND:"
+       echo "BUILD COMMANDS:"
        echo "export PERL5LIB=\"$PERL5LIB\""
        echo "export INCLUDES=\"$INCLUDES\""
-       echo "BUILD COMMAND: perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install"
+       echo "perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install"
        echo
        (cd "${DIR}" ; perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install) || exit 8
        # maybe roll back the version if fails?
