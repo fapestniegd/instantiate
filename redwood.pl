@@ -8,6 +8,7 @@ BEGIN {
             unshift(@INC,"/usr/local/lib/vmware-vcli/apps") 
         }
         unshift @INC, './lib' if -d './lib'; 
+        unshift @INC, './cpan' if -d './cpan'; 
       }
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
