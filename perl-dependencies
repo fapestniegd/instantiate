@@ -194,6 +194,8 @@ try RCAPUTO/POE-1.311.tar.gz
         try GRANTM/XML-SAX-0.96.tar.gz
     try GRANTM/XML-Simple-2.18.tar.gz
 try JKIM/Net-Amazon-EC2-0.14.tar.gz
+#try PMQS/IO-Compress-2.033.tar.gz
+    try PMQS/Compress-Raw-Zlib-2.033.tar.gz
 try PMQS/IO-Compress-2.033.tar.gz
 #try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails tests)
     #try JFEARN/HTML-Tree-4.2.tar.gz
