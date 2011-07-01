@@ -1,0 +1,185 @@
+#!/bin/bash
+################################################################################
+# Getting this to run on CentOS 5 proved to be impossible without overwriting
+# perl modules provided by RPMs, thus breaking all package management principles
+# so I decided to install them locally as needed. This script will pull them down
+# from CPAN and install them in a local directory to which we can point jarvis' @INC
+# 
+# Why not just use CPAN? I needed something that didn't play 40 questions with me
+# every time I use it. I want to background this process and let jarvis just get
+# what he needs without the water-boarding interrogation that's provided by -MCPAN -eshell
+################################################################################
+# Get some packages we need to build some of the modules
+CPANLIB="$(cd $(dirname $0);pwd)/cpan";
+PREFIX="${CPANLIB}"
+CANHAS="fortune-mod gcc git openssl-devel expat-devel"
+NEED=''
+for pkg in $(echo "${CANHAS}"); do
+    echo "$(rpm -q ${pkg})"|grep -q "not installed" && NEED="${NEED} ${pkg}"
+done
+echo $NEED
+
+if [ ! -z "${NEED}" ]; then
+    if [ "${UID}" == "0" ];then
+        yum install -y ${NEED}
+    else
+        echo "please: yum install -y ${NEED}"
+        exit;
+    fi
+fi
+if [ "$(stat -c %a /usr/local/share)" != "755" ] ;then 
+    if [ "${UID}" == "0" ];then
+        chmod 755 /usr/local/share
+    else
+        echo "/usr/local/share needs to be 0755"
+        exit 2;
+    fi
+fi
+################################################################################
+# gist bullshit:
+if [ ! -f /usr/local/bin/gist ];then 
+    if [ "${UID}" == "0" ];then
+        wget --no-check-certificate -O /usr/local/bin/gist https://github.com/fapestniegd/gist/raw/3a4d20ef432beb8e7541bdc594e54ab132a4e59b/gist
+        chmod 755 /usr/local/bin/gist
+    else
+         echo "you'll want to install gist in /usr/local/bin..."
+    fi
+fi
+################################################################################
+
+################################################################################
+[ ! -d "$(cd $(dirname $0);pwd)/tmp" ] &&  mkdir -p "$(cd $(dirname $0);pwd)/tmp"
+LOGFILE=$(mktemp $(cd $(dirname $0);pwd)/tmp/cpan.install.log.XXXX)
+################################################################################
+spin(){
+    while [ 1 ]; do 
+        echo -ne '/\x08' ; sleep 0.05
+        echo -ne '-\x08' ; sleep 0.05
+        echo -ne '\\\x08' ; sleep 0.05
+        echo -ne '|\x08' ; sleep 0.05
+    done
+}
+
+spinner(){
+    PROC=$1
+    spin &
+    disown
+    SPINNER=$!
+    wait $PROC
+    RETURN=$?
+    kill -9 ${SPINNER}
+    echo -ne "\x08 [${RETURN}] "
+    return $RETURN
+}
+################################################################################
+try(){
+    cd "$(cd $(dirname $0);pwd)/tmp"
+    URI=$1
+    if [ -z "${URI}" ]; then exit 1;fi
+
+    FILE=$(echo "${URI}"|sed -e 's/.*\///')
+    first=$(echo ${URI}|cut -b 1)
+    firsttwo=$(echo ${URI}|cut -b 1-2)
+
+    INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/5.8.8"
+    INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/"
+    INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi/"
+    INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
+    export INCLUDES
+
+    MODULEANDVER=$(echo "${FILE}"|sed -e 's/\.tar.gz//')
+    MODULE=$(echo "${MODULEANDVER}"|sed -e 's/-[^\-]*$//')      # strip the version
+    VERSION=$(echo "${MODULEANDVER}"|sed -e "s/^${MODULE}-//")  # strip everything but the version
+    VERSION=$(echo "${VERSION}"|sed -e 's/0*$//')               # 0.3800 -> 0.38
+    MODULE=$(echo ${MODULE} | sed -e 's/-/::/g')                # put :: where the dashes are
+
+    ACTUAL_VERSION=$(perl ${INCLUDES} -M${MODULE} -le "print qq(\$${MODULE}::VERSION);")
+    ACTUAL_VERSION=$(echo "${ACTUAL_VERSION}"|sed -e 's/0*$//') # 0.3800 -> 0.38
+    if [ -z ${ACTUAL_VERSION} ]; then
+        echo "NO VERSION INFO FOR ${MODULE}"
+        #If it won't return a version, go with any version
+        perl ${INCLUDES} -M${MODULE} -le 'print;'
+        if [ $? -eq 0 ]; then return 0; fi
+    else 
+        echo "Got: [ ${MODULE} ${ACTUAL_VERSION}/${VERSION} ]"
+        if [ "${ACTUAL_VERSION}" == "${VERSION}" ];then return 0; fi
+    fi
+
+    # fetch the file if we don't have it.
+    if [ ! -f "${FILE}" ];then
+        if [ -z "${FILE}" ]; then exit 2;fi
+        echo "Fetching ${FILE} from http://search.cpan.org/CPAN/authors/id/${first}/${firsttwo}/${URI}"
+        wget -qO "${FILE}" "http://search.cpan.org/CPAN/authors/id/${first}/${firsttwo}/${URI}"
+        if [ ! -f "${FILE}" ]; then exit 3;fi
+    fi
+
+    DIR=$(tar tzf "${FILE}"|sed -e 's/\/.*//'|sort -u|head -1)
+    tar xzf "${FILE}"
+    if [ ! -d "${DIR}" ]; then exit 4;fi
+
+    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/5.8.8"
+    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/"
+    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi"
+    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
+    export PERL5LIB
+
+    # Build
+    if [ -f "${DIR}/Build.PL" ]; then
+       export PERL5LIB
+       (cd "${DIR}" ; perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install) || exit 8
+       # maybe roll back the version if fails?
+    fi
+
+    # Make
+    # interactive by default options are gay
+    if [ "$DIR" == "XML-Twig-3.38" ];then GAYOPTIONS='-y'; fi
+
+    if [ -f "${DIR}/Makefile.PL" ]; then
+        (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite
+        if [ $? == 0 ]; then
+            (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite | while read line;do
+                echo "${line}" | sed -e 's/Warning: prerequisite //' -e 's/ .*$//'
+            done
+            exit 7 # could we try somwe fetching here?
+        else
+           export PERL5LIB
+           (cd "${DIR}";make && make test && make install) || exit 9 # maybe roll back the version if fails?
+        fi
+    fi
+    # clean up
+    rm -fr "${DIR}" "${FILE}"
+}
+################################################################################
+
+################################################################################
+the_needful(){
+    uri=$1;
+    pkg=$(echo $uri|sed -e 's/.*\///' -e's/.tar.gz.*$//')
+    echo -n "${pkg}: "
+    echo "################################################################################" >> ${LOGFILE} 2>&1
+    echo "# ${pkg}:  ">> ${LOGFILE} 2>&1
+    echo "################################################################################" >> ${LOGFILE} 2>&1
+    try $line >> ${LOGFILE} 2>&1 &
+    spinner $!
+    if [ $? -eq 0 ];then
+        echo OK
+        return 0;
+    else
+        echo FAIL
+        return 1;
+    fi
+}
+################################################################################
+cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line;do the_needful $line||exit $?;done
+EOF
+
+################################################################################
+# un-do the crap we did just to make this stuff build/test/install
+if [ ! -z "${NEED}" ]; then
+    if [ "${UID}" == "0" ];then
+        rpm -e ${NEED}
+    else
+        echo "you may: rpm -e ${NEED} now."
+        exit;
+    fi
+fi
