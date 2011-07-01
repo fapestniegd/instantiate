@@ -231,23 +231,7 @@ try RCAPUTO/POE-1.311.tar.gz
     try ADAMK/Task-Weaken-1.04.tar.gz
     #try FLORA/MRO-Compat-0.11.tar.gz
         #try FLORA/Class-C3-0.23.tar.gz
-            try FLORA/Algorithm-C3-0.08.tar.gz
-        try FLORA/Class-C3-0.23.tar.gz
-    try FLORA/MRO-Compat-0.11.tar.gz
-try DOY/Moose-2.0010.tar.gz
-#try JKIM/Net-Amazon-EC2-0.14.tar.gz
-    # try GRANTM/XML-Simple-2.18.tar.gz
-        try GRANTM/XML-SAX-0.96.tar.gz
-    try GRANTM/XML-Simple-2.18.tar.gz
-try JKIM/Net-Amazon-EC2-0.14.tar.gz
-#try PMQS/IO-Compress-2.033.tar.gz
-    try PMQS/Compress-Raw-Zlib-2.033.tar.gz
-    try PMQS/Compress-Raw-Bzip2-2.037.tar.gz
-try PMQS/IO-Compress-2.033.tar.gz
-#try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails tests)
-    #try JFEARN/HTML-Tree-4.2.tar.gz
-        #try ADIE/Test-Exception-0.31.tar.gz
-            #try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
+            #try FLORA/Algorithm-C3-0.08.tar.gz
                 #try DAGOLDEN/Module-Build-0.3800.tar.gz
                     #try DAGOLDEN/ExtUtils-ParseXS-2.2206.tar.gz
                         #try DAGOLDEN/ExtUtils-CBuilder-0.280202.tar.gz
@@ -295,6 +279,23 @@ try PMQS/IO-Compress-2.033.tar.gz
                         try RBS/Text-Diff-0.35.tar.gz # <- newer versions require nonexistant Algorithm-Diff-1.19
                     try BINGOS/Archive-Tar-1.76.tar.gz
                 try DAGOLDEN/Module-Build-0.3800.tar.gz
+            try FLORA/Algorithm-C3-0.08.tar.gz
+        try FLORA/Class-C3-0.23.tar.gz
+    try FLORA/MRO-Compat-0.11.tar.gz
+try DOY/Moose-2.0010.tar.gz
+#try JKIM/Net-Amazon-EC2-0.14.tar.gz
+    # try GRANTM/XML-Simple-2.18.tar.gz
+        try GRANTM/XML-SAX-0.96.tar.gz
+    try GRANTM/XML-Simple-2.18.tar.gz
+try JKIM/Net-Amazon-EC2-0.14.tar.gz
+#try PMQS/IO-Compress-2.033.tar.gz
+    try PMQS/Compress-Raw-Zlib-2.033.tar.gz
+    try PMQS/Compress-Raw-Bzip2-2.037.tar.gz
+try PMQS/IO-Compress-2.033.tar.gz
+#try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails tests)
+    #try JFEARN/HTML-Tree-4.2.tar.gz
+        #try ADIE/Test-Exception-0.31.tar.gz
+            #try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
             try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
         try ADIE/Test-Exception-0.31.tar.gz
     try JFEARN/HTML-Tree-4.2.tar.gz
