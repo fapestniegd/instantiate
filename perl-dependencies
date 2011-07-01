@@ -355,7 +355,7 @@ try PMQS/IO-Compress-2.033.tar.gz
 try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
 try MAKAMAKA/JSON-2.53.tar.gz
 try INGY/YAML-0.73.tar.gz
-ry CHORNY/Net-Ping-External-0.13.zip
+try CHORNY/Net-Ping-External-0.13.zip
 EOF
 
 ################################################################################
