@@ -173,12 +173,24 @@ the_needful(){
 }
 
 ################################################################################
+# bare host kickstarted with: 
+# %packages
+# @Base, dhcp, autodir, sendmail-cf, perl-Net-DNS, perl-Sys-Hostname-Long, 
+# perl-LDAP xorg-x11-xauth, xterm, openldap-clients, -java-1.5.0-ibm, 
+# -java-1.5.0-ibm-devel, -gpm cfengine-community
+################################################################################
+
+################################################################################
+# add vmware with:
+#
 # wget VMware-vSphere-Perl-SDK-4.1.0-254719.i386.tar.gz  from vmware
 # tar xvzf VMware-vSphere-Perl-SDK-4.1.0-254719.i386.tar.gz
 # cd vmware-vsphere-cli-distrib/
 # ./vmware-install.pl default
 # (accept the license)
 ################################################################################
+
+ 
 
 ################################################################################
 cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line;do the_needful $line||exit $?;done
@@ -191,6 +203,9 @@ cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line
     try AMS/Storable-2.25.tar.gz
 try RCAPUTO/POE-1.311.tar.gz
 #try DOY/Moose-2.0010.tar.gz
+    #try RJBS/Data-OptList-0.107.tar.gz
+        try ADAMK/Params-Util-1.04.tar.gz
+        try RJBS/Sub-Install-0.925.tar.gz
     try RJBS/Data-OptList-0.107.tar.gz
     #try FLORA/Devel-GlobalDestruction-0.03.tar.gz
         try CHOCOLATE/Scope-Guard-0.20.tar.gz
@@ -208,7 +223,6 @@ try RCAPUTO/POE-1.311.tar.gz
     #try DOY/Package-Stash-0.29.tar.gz
         try DOY/Package-Stash-XS-0.22.tar.gz
     try DOY/Package-Stash-0.29.tar.gz
-    try ADAMK/Params-Util-1.04.tar.gz
     try RJBS/Sub-Exporter-0.982.tar.gz
     try FLORA/Sub-Name-0.05.tar.gz
     try ADAMK/Task-Weaken-1.04.tar.gz
@@ -304,7 +318,6 @@ try PMQS/IO-Compress-2.033.tar.gz
         try ROBIN/PadWalker-1.92.tar.gz
     try PETDANCE/Test-Memory-Cycle-1.04.tar.gz
 try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
-
 EOF
 
 ################################################################################
