@@ -130,6 +130,9 @@ try(){
     # Build
     if [ -f "${DIR}/Build.PL" ]; then
        export PERL5LIB
+       echo
+       echo "BUILD COMMAND: perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install"
+       echo
        (cd "${DIR}" ; perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install) || exit 8
        # maybe roll back the version if fails?
     fi
@@ -139,7 +142,9 @@ try(){
     if [ "$DIR" == "XML-Twig-3.38" ];then GAYOPTIONS='-y'; fi
 
     if [ -f "${DIR}/Makefile.PL" ]; then
-        echo "BUILD COMMAND: perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1"
+       echo
+       echo "BUILD COMMAND: perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1"
+       echo
 
         (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite
         if [ $? == 0 ]; then
