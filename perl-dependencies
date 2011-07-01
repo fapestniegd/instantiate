@@ -192,6 +192,8 @@ cat<<EOF |sed -e's/#.*//' -e 's/^ *try //' -e 's/^ *$//'| grep .|while read line
 try RCAPUTO/POE-1.311.tar.gz
 #try DOY/Moose-2.0010.tar.gz
     try RJBS/Data-OptList-0.107.tar.gz
+    #try FLORA/Devel-GlobalDestruction-0.03.tar.gz
+        try CHOCOLATE/Scope-Guard-0.20.tar.gz
     try FLORA/Devel-GlobalDestruction-0.03.tar.gz
     try DOY/Eval-Closure-0.06.tar.gz
     try ADAMK/List-MoreUtils-0.32.tar.gz
