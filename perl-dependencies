@@ -287,7 +287,9 @@ try DOY/Moose-2.0010.tar.gz
     # try GRANTM/XML-Simple-2.18.tar.gz
         try GRANTM/XML-SAX-0.96.tar.gz
     try GRANTM/XML-Simple-2.18.tar.gz
-try JKIM/Net-Amazon-EC2-0.14.tar.gz
+#
+#try JKIM/Net-Amazon-EC2-0.14.tar.gz
+#
 #try PMQS/IO-Compress-2.033.tar.gz
     try PMQS/Compress-Raw-Zlib-2.033.tar.gz
     try PMQS/Compress-Raw-Bzip2-2.037.tar.gz
