@@ -329,6 +329,7 @@ try PMQS/IO-Compress-2.033.tar.gz
         try ROBIN/PadWalker-1.92.tar.gz
     try PETDANCE/Test-Memory-Cycle-1.04.tar.gz
 try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
+try JKIM/Net-Amazon-EC2-0.14.tar.gz # stalls above...
 EOF
 
 ################################################################################
