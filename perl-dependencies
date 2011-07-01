@@ -226,6 +226,8 @@ try RCAPUTO/POE-1.311.tar.gz
         try TOKUHIROM/Test-Requires-0.06.tar.gz
     try DOY/Eval-Closure-0.06.tar.gz
     try ADAMK/List-MoreUtils-0.32.tar.gz
+    #try DROLSKY/Package-DeprecationManager-0.11.tar.gz
+        try DROLSKY/Params-Validate-1.00.tar.gz
     try DROLSKY/Package-DeprecationManager-0.11.tar.gz
     #try DOY/Package-Stash-0.29.tar.gz
         try DOY/Package-Stash-XS-0.22.tar.gz
