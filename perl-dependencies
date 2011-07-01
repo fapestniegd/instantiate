@@ -225,6 +225,56 @@ try PMQS/IO-Compress-2.033.tar.gz
 #try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails tests)
     #try JFEARN/HTML-Tree-4.2.tar.gz
         #try ADIE/Test-Exception-0.31.tar.gz
+            #try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
+#
+                #try DAGOLDEN/Module-Build-0.3800.tar.gz
+                    #try DAGOLDEN/ExtUtils-ParseXS-2.2206.tar.gz
+                        #try DAGOLDEN/ExtUtils-CBuilder-0.280202.tar.gz
+                            try SMUELLER/PathTools-3.33.tar.gz
+                            #try BINGOS/IPC-Cmd-0.70.tar.gz
+                                try JESSE/Locale-Maketext-Simple-0.21.tar.gz
+                                #try BINGOS/Module-Load-Conditional-0.44.tar.gz
+                                    try JPEACOCK/version-0.88.tar.gz
+                                    try BINGOS/Module-CoreList-2.46.tar.gz
+                                    try BINGOS/Module-Load-0.18.tar.gz
+                                    try BINGOS/Params-Check-0.28.tar.gz
+                                try BINGOS/Module-Load-Conditional-0.44.tar.gz
+                            try BINGOS/IPC-Cmd-0.70.tar.gz
+                        try DAGOLDEN/ExtUtils-CBuilder-0.280202.tar.gz
+                    try DAGOLDEN/ExtUtils-ParseXS-2.2206.tar.gz
+                    try DAGOLDEN/Module-Metadata-1.000004.tar.gz
+                    #try DAGOLDEN/CPAN-Meta-2.110930.tar.gz
+                        try DAGOLDEN/CPAN-Meta-YAML-0.003.tar.gz
+                        try TJENNESS/File-Temp-0.22.tar.gz
+                        try MAKAMAKA/JSON-PP-2.27105.tar.gz
+                        try DAGOLDEN/Parse-CPAN-Meta-1.4401.tar.gz
+                        try RJBS/Version-Requirements-0.101020.tar.gz
+                    try DAGOLDEN/CPAN-Meta-2.110930.tar.gz
+                    try DAGOLDEN/Parse-CPAN-Meta-1.4401.tar.gz
+                    try DAGOLDEN/Perl-OSType-1.002.tar.gz
+                    try ANDYA/Test-Harness-3.23.tar.gz
+                    #try BIGPRESH/Pod-Readme-0.11.tar.gz
+                       #try RRA/podlators-2.4.0.tar.gz
+                            #try DWHEELER/Pod-Simple-3.16.tar.gz
+                                try SBURKE/Pod-Escapes-1.04.tar.gz
+                            try DWHEELER/Pod-Simple-3.16.tar.gz
+                         try RRA/podlators-2.4.0.tar.gz
+                        try ABIGAIL/Regexp-Common-2011041701.tar.gz
+                    try BIGPRESH/Pod-Readme-0.11.tar.gz
+                    #try BINGOS/Archive-Tar-1.76.tar.gz
+                        # try PMQS/IO-Compress-2.033.tar.gz
+                            try PMQS/Compress-Raw-Bzip2-2.033.tar.gz
+                        #try PMQS/IO-Compress-2.033.tar.gz
+                            try PMQS/Compress-Raw-Zlib-2.033.tar.gz
+                        try PMQS/IO-Compress-2.033.tar.gz
+                         try TOMHUGHES/IO-Zlib-1.10.tar.gz
+                         try KANE/Package-Constants-0.02.tar.gz
+                         #try OVID/Text-Diff-1.41.tar.gz
+                             try NEDKONZ/Algorithm-Diff-1.15.tar.gz
+                         try RBS/Text-Diff-0.35.tar.gz # <- newer versions require nonexistant Algorithm-Diff-1.19
+                    try BINGOS/Archive-Tar-1.76.tar.gz
+                try DAGOLDEN/Module-Build-0.3800.tar.gz
+#
             try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
         try ADIE/Test-Exception-0.31.tar.gz
     try JFEARN/HTML-Tree-4.2.tar.gz
