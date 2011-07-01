@@ -137,11 +137,14 @@ try(){
     if [ "$DIR" == "XML-Twig-3.38" ];then GAYOPTIONS='-y'; fi
 
     if [ -f "${DIR}/Makefile.PL" ]; then
+        echo "perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1"
+
+echo 1
         (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite
+echo 2
         if [ $? == 0 ]; then
             #(cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite | while read line;do
             cd "${DIR}";
-            echo "perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1"
             perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1
         else
            export PERL5LIB
