@@ -4,7 +4,7 @@ use strict;
 # A skeleton POE wrapper to test how the functionality will work in a bot
 ################################################################################
 BEGIN { 
-        if(-d "/usr/local/lib/vmware-vcli/apps"){
+        if(-d "/usr/lib/vmware-vcli/apps"){
             unshift(@INC,"/usr/local/lib/vmware-vcli/apps") 
         }
         unshift @INC, './lib' if -d './lib'; 
