@@ -211,6 +211,7 @@ try RCAPUTO/POE-1.311.tar.gz
     try RJBS/Data-OptList-0.107.tar.gz
     #try FLORA/Devel-GlobalDestruction-0.03.tar.gz
         try CHOCOLATE/Scope-Guard-0.20.tar.gz
+        try RJBS/Sub-Exporter-0.982.tar.gz
     try FLORA/Devel-GlobalDestruction-0.03.tar.gz
     #try DOY/Eval-Closure-0.06.tar.gz
         #try RJBS/Test-Fatal-0.006.tar.gz
