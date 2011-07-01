@@ -122,7 +122,7 @@ try(){
     echo ${FILE} | grep -q "\.zip$"
     if [ $? -eq 0 ]; then
         unzip -o "${FILE}"
-        DIR=$(ls -1arth | tail -1)
+        DIR=$(unzip -l Net-Ping-External-0.13.zip | awk '{if($1==0){print $NF;}}' |head -1|sed -e 's/\/.*//')
     else
         DIR=$(tar tzf "${FILE}"|sed -e 's/\/.*//'|sort -u|head -1)
         tar xzf "${FILE}"
