@@ -20,9 +20,9 @@ for pkg in $(echo "${CANHAS}"); do
 done
 
 echo "-=[$NEED]=-"
-exit
 
 if [ ! -z "${NEED}" ]; then
+    exit 0;
     if [ "${UID}" == "0" ];then
         yum install -y ${NEED}
     else
