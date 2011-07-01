@@ -129,6 +129,8 @@ try(){
     fi
     if [ ! -d "${DIR}" ]; then exit 4;fi
 
+echo "${DIR} $FILE"
+
     PERL5LIB="${PREFIX}/lib/perl5/5.8.8"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/i386-linux-thread-multi"
