@@ -12,7 +12,7 @@
 # Get some packages we need to build some of the modules
 CPANLIB="$(cd $(dirname $0);pwd)/cpan";
 PREFIX="${CPANLIB}"
-CANHAS="fortune-mod gcc git openssl-devel expat-devel"
+CANHAS="fortune-mod gcc git openssl-devel expat-devel perl-Moose"
 NEED=''
 
 for pkg in $(echo "${CANHAS}"); do
