@@ -185,8 +185,7 @@ the_needful(){
 #
 # wget VMware-vSphere-Perl-SDK-4.1.0-254719.i386.tar.gz  from vmware
 # tar xvzf VMware-vSphere-Perl-SDK-4.1.0-254719.i386.tar.gz
-# cd vmware-vsphere-cli-distrib/
-# ./vmware-install.pl default
+# (cd vmware-vsphere-cli-distrib;./vmware-install.pl default)
 # (accept the license)
 ################################################################################
 
