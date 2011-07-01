@@ -14,6 +14,7 @@ CPANLIB="$(cd $(dirname $0);pwd)/cpan";
 PREFIX="${CPANLIB}"
 CANHAS="fortune-mod gcc git openssl-devel expat-devel"
 NEED=''
+
 for pkg in $(echo "${CANHAS}"); do
     echo "$(rpm -q ${pkg})"|grep -q "not installed" && NEED="${NEED} ${pkg}"
 done
@@ -191,6 +192,41 @@ try RCAPUTO/POE-1.311.tar.gz
         try GRANTM/XML-SAX-0.96.tar.gz
     try GRANTM/XML-Simple-2.18.tar.gz
 try JKIM/Net-Amazon-EC2-0.14.tar.gz
+#try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails tests)
+    #try JFEARN/HTML-Tree-4.2.tar.gz
+        #try ADIE/Test-Exception-0.31.tar.gz
+            try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
+        try ADIE/Test-Exception-0.31.tar.gz
+    try JFEARN/HTML-Tree-4.2.tar.gz
+    try JESSE/HTTP-Server-Simple-0.44.tar.gz
+    #try GAAS/libwww-perl-6.02.tar.gz
+        try GAAS/Encode-Locale-1.02.tar.gz
+        #try GAAS/File-Listing-6.02.tar.gz
+            try GAAS/HTTP-Date-6.00.tar.gz
+        try GAAS/File-Listing-6.02.tar.gz
+        #try GAAS/HTTP-Cookies-6.00.tar.gz
+            #try GAAS/HTTP-Message-6.02.tar.gz
+                try GAAS/LWP-MediaTypes-6.01.tar.gz
+            try GAAS/HTTP-Message-6.02.tar.gz
+        try GAAS/HTTP-Cookies-6.00.tar.gz
+        try GAAS/HTTP-Daemon-6.00.tar.gz
+        try GAAS/HTTP-Date-6.00.tar.gz
+        try GAAS/HTTP-Negotiate-6.00.tar.gz
+        try GAAS/HTTP-Message-6.02.tar.gz
+        try GAAS/LWP-MediaTypes-6.01.tar.gz
+        try GAAS/Net-HTTP-6.01.tar.gz
+        try GAAS/WWW-RobotRules-6.01.tar.gz
+    try GAAS/libwww-perl-6.02.tar.gz
+    # try CHORNY/Test-Warn-0.23.tar.gz
+        try COGENT/Tree-DAG_Node-1.06.tar.gz
+    try CHORNY/Test-Warn-0.23.tar.gz
+    try GAAS/URI-1.58.tar.gz   
+    # try PETDANCE/Test-Memory-Cycle-1.04.tar.gz
+        try LDS/Devel-Cycle-1.11.tar.gz
+        try ROBIN/PadWalker-1.92.tar.gz
+    try PETDANCE/Test-Memory-Cycle-1.04.tar.gz
+try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
+
 EOF
 
 ################################################################################
