@@ -75,9 +75,7 @@ spinner(){
 }
 ################################################################################
 try(){
-    if [ -d "$(cd $(dirname $0);pwd)/tmp" ];then
-        cd "$(cd $(dirname $0);pwd)/tmp"
-    fi
+    cd "$(cd $(dirname $0);pwd)/tmp"
     URI=$1
     if [ -z "${URI}" ]; then exit 1;fi
 
