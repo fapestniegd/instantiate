@@ -279,7 +279,8 @@ try RCAPUTO/POE-1.311.tar.gz
                         try RBS/Text-Diff-0.35.tar.gz # <- newer versions require nonexistant Algorithm-Diff-1.19
                     try BINGOS/Archive-Tar-1.76.tar.gz
                 try DAGOLDEN/Module-Build-0.3800.tar.gz
-            try FLORA/Algorithm-C3-0.06.tar.gz
+            #try FLORA/Algorithm-C3-0.06.tar.gz
+            try BLBLACK/Algorithm-C3-0.06.tar.gz
         try FLORA/Class-C3-0.23.tar.gz
     try FLORA/MRO-Compat-0.11.tar.gz
 try DOY/Moose-2.0010.tar.gz
