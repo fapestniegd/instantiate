@@ -18,7 +18,9 @@ NEED=''
 for pkg in $(echo "${CANHAS}"); do
     echo "$(rpm -q ${pkg})"|grep -q "not installed" && NEED="${NEED} ${pkg}"
 done
-echo $NEED
+
+echo "-=[$NEED]=-"
+exit
 
 if [ ! -z "${NEED}" ]; then
     if [ "${UID}" == "0" ];then
