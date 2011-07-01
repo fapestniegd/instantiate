@@ -83,7 +83,7 @@ try(){
     first=$(echo ${URI}|cut -b 1)
     firsttwo=$(echo ${URI}|cut -b 1-2)
 
-    INCLUDES="-I ${PREFIX}/lib/perl5/5.8.8"
+    INCLUDES=" -I ${PREFIX}/lib/perl5/5.8.8"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi/"
     INCLUDES="${INCLUDES} -I ${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
