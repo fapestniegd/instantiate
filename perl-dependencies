@@ -12,7 +12,7 @@
 # Get some packages we need to build some of the modules
 CPANLIB="$(cd $(dirname $0);pwd)/cpan";
 PREFIX="${CPANLIB}"
-CANHAS="fortune-mod gcc git openssl-devel expat-devel perl-Moose"
+CANHAS="gcc git openssl-devel expat-devel"
 NEED=''
 
 for pkg in $(echo "${CANHAS}"); do
@@ -226,7 +226,6 @@ try PMQS/IO-Compress-2.033.tar.gz
     #try JFEARN/HTML-Tree-4.2.tar.gz
         #try ADIE/Test-Exception-0.31.tar.gz
             #try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
-#
                 #try DAGOLDEN/Module-Build-0.3800.tar.gz
                     #try DAGOLDEN/ExtUtils-ParseXS-2.2206.tar.gz
                         #try DAGOLDEN/ExtUtils-CBuilder-0.280202.tar.gz
@@ -262,19 +261,18 @@ try PMQS/IO-Compress-2.033.tar.gz
                         try ABIGAIL/Regexp-Common-2011041701.tar.gz
                     try BIGPRESH/Pod-Readme-0.11.tar.gz
                     #try BINGOS/Archive-Tar-1.76.tar.gz
-                        # try PMQS/IO-Compress-2.033.tar.gz
+                        #try PMQS/IO-Compress-2.033.tar.gz
                             try PMQS/Compress-Raw-Bzip2-2.033.tar.gz
                         #try PMQS/IO-Compress-2.033.tar.gz
                             try PMQS/Compress-Raw-Zlib-2.033.tar.gz
                         try PMQS/IO-Compress-2.033.tar.gz
-                         try TOMHUGHES/IO-Zlib-1.10.tar.gz
-                         try KANE/Package-Constants-0.02.tar.gz
-                         #try OVID/Text-Diff-1.41.tar.gz
+                        try TOMHUGHES/IO-Zlib-1.10.tar.gz
+                        try KANE/Package-Constants-0.02.tar.gz
+                        #try OVID/Text-Diff-1.41.tar.gz
                              try NEDKONZ/Algorithm-Diff-1.15.tar.gz
-                         try RBS/Text-Diff-0.35.tar.gz # <- newer versions require nonexistant Algorithm-Diff-1.19
+                        try RBS/Text-Diff-0.35.tar.gz # <- newer versions require nonexistant Algorithm-Diff-1.19
                     try BINGOS/Archive-Tar-1.76.tar.gz
                 try DAGOLDEN/Module-Build-0.3800.tar.gz
-#
             try DAGOLDEN/Sub-Uplevel-0.22.tar.gz
         try ADIE/Test-Exception-0.31.tar.gz
     try JFEARN/HTML-Tree-4.2.tar.gz

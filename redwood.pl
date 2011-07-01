@@ -4,12 +4,14 @@ use strict;
 # A skeleton POE wrapper to test how the functionality will work in a bot
 ################################################################################
 BEGIN { 
-        if(-d "/usr/lib/vmware-vcli/apps"){
-            unshift(@INC,"/usr/lib/vmware-vcli/apps") 
-        }
-        unshift @INC, './lib' if -d './lib'; 
-        unshift @INC, './cpan/lib/perl5/site_perl/5.8.8' if -d './cpan/lib/perl5/site_perl/5.8.8'; 
-      }
+        my $libs = [
+                     "./lib",
+                     "/usr/lib/vmware-vcli/apps",
+                     "/usr/local/lib/vmware-vcli/apps",
+                     "./cpan/lib/perl5/site_perl/5.8.8",
+                   ];
+        foreach my $lib (@{ $libs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
+      };
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
 $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
