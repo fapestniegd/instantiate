@@ -119,7 +119,7 @@ try(){
     tar xzf "${FILE}"
     if [ ! -d "${DIR}" ]; then exit 4;fi
 
-    PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/5.8.8"
+    PERL5LIB="${PREFIX}/lib/perl5/5.8.8"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/5.8.8/i386-linux-thread-multi"
     PERL5LIB="${PERL5LIB}:${PREFIX}/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi"
@@ -139,10 +139,9 @@ try(){
     if [ -f "${DIR}/Makefile.PL" ]; then
         (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite
         if [ $? == 0 ]; then
-            (cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite | while read line;do
-                echo "${line}" | sed -e 's/Warning: prerequisite //' -e 's/ .*$//'
-            done
-            exit 7 # could we try somwe fetching here?
+            #(cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite | while read line;do
+            cd "${DIR}";
+            perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&
         else
            export PERL5LIB
            (cd "${DIR}";make && make test && make install) || exit 9 # maybe roll back the version if fails?
@@ -287,9 +286,7 @@ try DOY/Moose-2.0010.tar.gz
     # try GRANTM/XML-Simple-2.18.tar.gz
         try GRANTM/XML-SAX-0.96.tar.gz
     try GRANTM/XML-Simple-2.18.tar.gz
-#
-#try JKIM/Net-Amazon-EC2-0.14.tar.gz
-#
+try JKIM/Net-Amazon-EC2-0.14.tar.gz
 #try PMQS/IO-Compress-2.033.tar.gz
     try PMQS/Compress-Raw-Zlib-2.033.tar.gz
     try PMQS/Compress-Raw-Bzip2-2.037.tar.gz
@@ -329,7 +326,6 @@ try PMQS/IO-Compress-2.033.tar.gz
         try ROBIN/PadWalker-1.92.tar.gz
     try PETDANCE/Test-Memory-Cycle-1.04.tar.gz
 try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
-try JKIM/Net-Amazon-EC2-0.14.tar.gz # stalls above...
 EOF
 
 ################################################################################
