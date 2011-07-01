@@ -141,7 +141,7 @@ try(){
         if [ $? == 0 ]; then
             #(cd "${DIR}";yes "y"|perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1)|grep prerequisite | while read line;do
             cd "${DIR}";
-            perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&
+            perl ${INCLUDES} Makefile.PL ${GAYOPTIONS} PREFIX="${PREFIX}" 2>&1
         else
            export PERL5LIB
            (cd "${DIR}";make && make test && make install) || exit 9 # maybe roll back the version if fails?
