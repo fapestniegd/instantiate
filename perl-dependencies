@@ -118,8 +118,14 @@ try(){
         if [ ! -f "${FILE}" ]; then exit 3;fi
     fi
 
-    DIR=$(tar tzf "${FILE}"|sed -e 's/\/.*//'|sort -u|head -1)
-    tar xzf "${FILE}"
+    echo ${FILE} | grep -q "\.zip$"
+    if [ $? -eq 0 ]; then
+        unzip -o "${FILE}"
+        DIR=$(ls -1arth | tail -1)
+    else
+        DIR=$(tar tzf "${FILE}"|sed -e 's/\/.*//'|sort -u|head -1)
+        tar xzf "${FILE}"
+    fi
     if [ ! -d "${DIR}" ]; then exit 4;fi
 
     PERL5LIB="${PREFIX}/lib/perl5/5.8.8"
