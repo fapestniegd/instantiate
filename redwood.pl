@@ -5,7 +5,7 @@ use strict;
 ################################################################################
 BEGIN { 
         if(-d "/usr/lib/vmware-vcli/apps"){
-            unshift(@INC,"/usr/local/lib/vmware-vcli/apps") 
+            unshift(@INC,"/usr/lib/vmware-vcli/apps") 
         }
         unshift @INC, './lib' if -d './lib'; 
         unshift @INC, './cpan/lib/perl5/site_perl/5.8.8' if -d './cpan/lib/perl5/site_perl/5.8.8'; 
