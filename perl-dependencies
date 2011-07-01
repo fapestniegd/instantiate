@@ -131,6 +131,9 @@ try(){
     if [ -f "${DIR}/Build.PL" ]; then
        export PERL5LIB
        echo
+       echo "BUILD COMMAND:"
+       echo "export PERL5LIB=\"$PERL5LIB\""
+       echo "export INCLUDES=\"$INCLUDES\""
        echo "BUILD COMMAND: perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install"
        echo
        (cd "${DIR}" ; perl Build.PL --install_base "${PREFIX}" && ./Build && ./Build test && ./Build install) || exit 8
