@@ -199,6 +199,8 @@ try RCAPUTO/POE-1.311.tar.gz
         #try RJBS/Test-Fatal-0.006.tar.gz
             try DOY/Try-Tiny-0.09.tar.gz
         try RJBS/Test-Fatal-0.006.tar.gz
+        #try TOKUHIROM/Test-Requires-0.06.tar.gz
+            try MSCHWERN/ExtUtils-MakeMaker-6.56.tar.gz
         try TOKUHIROM/Test-Requires-0.06.tar.gz
     try DOY/Eval-Closure-0.06.tar.gz
     try ADAMK/List-MoreUtils-0.32.tar.gz
