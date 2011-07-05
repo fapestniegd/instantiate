@@ -14,7 +14,7 @@ trap traphup SIGHUP
 fifo_watch(){
 FIFO=$1;
     [ -z $FIFO ] && exit;
-    [ ! -p $FIFO ] && exit;
+    [ ! -p $FIFO ] && exit
     while [ 1 ];do 
         cat ${FIFO}| while read line;do 
             case "$line" in
@@ -29,4 +29,9 @@ FIFO=$1;
     done
 }
 #exit 0;
-fifo_watch /var/run/httpd.cmd
+FIFO="/var/run/httpd.cmd"
+if [ ! -p $FIFO ];then
+    mkfifo -m 660 ${FIFO}
+    chown root:apache ${FIFO}
+fi
+fifo_watch ${FIFO}

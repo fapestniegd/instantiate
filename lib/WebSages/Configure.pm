@@ -96,11 +96,11 @@ sub ldap_dhcp_install{
                                             'scope'  => 'sub',
                                           });
     my $entry;
+    my $new_macs;
+    foreach my $mac (@{ $cb->{'macaddrs'} }){
+        push (@{ $new_macs }, "ethernet ".$mac);
+    } 
     if($entries){
-        my $new_macs;
-        foreach my $mac (@{ $cb->{'macaddrs'} }){
-            push (@{ $new_macs }, "ethernet ".$mac);
-        } 
         if($#entries > 0){
             foreach $entry (@{ $entries }){
                 $entry->delete;
@@ -123,8 +123,8 @@ sub ldap_dhcp_install{
          # create new entry
          $entry = Net::LDAP::Entry->new();;
          $entry->dn("cn=$cb->{'fqdn'}, cn=DHCP,$self->{'base_dn'}");
-         my $router=$cb->{'ipaddress'};
-         $router=~s/\.[^\.]$/\.1/;
+         my $router = $cb->{'ipaddress'};
+         $router=~s/\.[^\.]+$/.1/; # this is probably a bad assumption
          $entry->add( 
                                          'cn'             => "$cb->{'fqdn'}",
                                          'objectClass'    => [

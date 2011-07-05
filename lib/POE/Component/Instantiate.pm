@@ -112,6 +112,7 @@ sub redeploy {
 #                               "wc:update_AD_DNS",           # update Active Directory DNS with the host's IP
                                "sp:deploy",                    # deploy the new host
                                "sp:get_macaddrs",              # get the MAC address from the API
+                               "wc:host_record_updates",       # update ou=Hosts with the new information
                                "wc:ldap_dhcp_install",         # updated the MAC address in LDAP, set do boot pxe
                                "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
                                "sp:startup",                   # power on the vm (it should PXE by default)

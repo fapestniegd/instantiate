@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use Data::Dumper;
 use strict;
+$|=1;
 
 package Net::LDAP::CMDB;
 use Cwd;
@@ -210,19 +211,25 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
             $hexval.=$hex;
         }
         $hexval=~tr/a-z/A-Z/;
-        my $symlink_exists;
-        $symlink_exists = eval { symlink($h->{'id'},$h->{'hardware'}); 1};
-        $symlink_exists = eval { symlink($h->{'fixed-address'},$h->{'id'}); 1};
-        $symlink_exists = eval { symlink($hexval,$h->{'fixed-address'}); 1};
-        unlink $hexval if(-l $hexval);
-        if(-l $hexval){ print "$hexval failed to unlink\n"};
-        # Template out our OS PXE menu
 
+        my $symlink_exists;
+        # link  01-00-00-00-00-00-00 -> hostname.eftdomain.net if not already
+        print STDERR "$h->{'hardware'} has multiple entries in cn=DHCP\n" unless readlink($h->{'hardware'});
+        unlink($h->{'hardware'}) unless(readlink($h->{'hardware'}) eq  $h->{'id'});
+        symlink($h->{'id'},$h->{'hardware'}) unless( readlink($h->{'hardware'}) eq  $h->{'id'});
+        # link  hostname.eftdomain.net -> 192.168.n.m if not already
+        unlink($h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
+        symlink($h->{'fixed-address'},$h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
+        # link  192.168.n.m -> C0A8NNMM if not already
+        unlink($h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
+        symlink($hexval,$h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
+
+        # Template out our OS PXE menu
         if($h->{'filename'} eq '"pxelinux.install"'){
             if(defined($h->{'os'})){
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
                 my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
-                $hostname=$h->{'id'};
+                my $hostname=$h->{'id'};
                 $hostname=~s/\..*//;
                 my $vars = { 
                              'hostname'   => $hostname, 
@@ -230,10 +237,18 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                              'domainname' => $cfg->{'domain'} 
                            };
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
-                $symlink_exists = eval { symlink("../pxelinux.menus/install_$h->{'id'}",$hexval); 1};
+                # link C0A8NNMM -> <installer>
+                unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
+                symlink("../pxelinux.menus/install_$h->{'id'}",$hexval)
+                  unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
+
             }else{
-                print STDERR "$h->{'id'} is set to install but has not Operating System Defined.\n";
-                $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
+                # link C0A8NNMM -> main_menu
+                print STDERR "$h->{'id'} is set to install but has no Operating System Defined.\n";
+                unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
+                symlink("../pxelinux.menus/main_menu",$hexval)
+                  unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
+
             }
         }else{
            $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
