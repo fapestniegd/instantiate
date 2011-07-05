@@ -613,7 +613,8 @@ sub host_record_updates{
         if($server=~m/(.*)/){
             $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/);
         }
-        next unless($server eq "ldaps://freyr.websages.com:636");
+        print STDERR "trying server [$server]\n";
+        
         my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
         next if($ldap == 1);
         $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
