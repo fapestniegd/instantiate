@@ -819,7 +819,7 @@ sub wait_for_ssh{
     my $hostname;
     my $count=0;
     my $got_hostname=0;
-    while(($got_hostname == 0)&&($count <= 20)){
+    while(($got_hostname == 0)&&($count <= 60)){ # (60 tries * 60 seconds appart ) => 1 hour
         print STDERR "Waiting for ssh login: " if($count > 0);
         # use keyauth or fail.
         open (SSH,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no -o PasswordAuthentication=no root\@$ip hostname|");
@@ -828,7 +828,7 @@ sub wait_for_ssh{
 
         print STDERR "hostname: $hostname\n";
         $got_hostname = 1 if($hostname ne ""); 
-        sleep 10 unless $got_hostname;
+        sleep 60 unless $got_hostname; # this should be tuneable
         $count++;
     }
     return $self;
