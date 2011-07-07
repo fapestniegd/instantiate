@@ -42,7 +42,7 @@ use POE::Component::Instantiate;
 # override them.
 use Getopt::Long;
 $Getopt::Long::ignorecase = 0;
-
+use Term::ReadKey;
 use Data::Dumper;
 use YAML;
 my $opt={};
