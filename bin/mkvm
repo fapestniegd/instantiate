@@ -16,8 +16,8 @@ BEGIN {
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
 $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
-$SIG{'INT'} = sub {ReadMode(0);}
-$SIG{'INT2'} = sub {ReadMode(0);}
+$SIG{'INT'} = sub { ReadMode(0); };
+$SIG{'INT2'} = sub { ReadMode(0); };
 #################################################################################
 #
 use POE;
@@ -56,7 +56,7 @@ my $result = GetOptions(
   'profile=s'         => \$opt->{'profile'},
   'P=s'               => \$opt->{'profile'},
   'resourcepool=s'    => \$opt->{'resourcepool'},
-  'type=s'            => \$opt->{'type'},                       # service specific: 32:1x512
+  'type=s'            => \$opt->{'type'},                       # service specific: 32:1x512;
   'uri=s'             => sub { push(@{$opt->{'uri'}}, $_[1]) },
   'H=s'               => sub { push(@{$opt->{'uri'}}, $_[1]) }, # -H in ldapsearch
   'username=s'        => \$opt->{'username'},                   # windows username (vcenter)
