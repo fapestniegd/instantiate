@@ -97,15 +97,20 @@ if(defined($opt->{'config'})){
 }
 delete $opt->{'config'};
 
+my $profile='default';
+if(defined($opt->{'provile'})){ 
+    $profile=$opt->{'profile'};
+}
+    
 ################################################################################
 # if the user didn't provide us one or any of the things above, we have to make 
 # an attempt to decide what they are before bailing... what we need depends on 
 # the service specified, if none, we pick vcenter
 ################################################################################
-foreach my $default (keys(%{ $config->{'profiles'}->{'default'} })){
+foreach my $default (keys(%{ $config->{'profiles'}->{$profile} })){
     if(!defined($opt->{$default})){ 
-        if( $config->{'profiles'}->{'default'}->{$default}){
-            $opt->{$default} = $config->{'profiles'}->{'default'}->{$default};
+        if( $config->{'profiles'}->{$profile}->{$default}){
+            $opt->{$default} = $config->{'profiles'}->{$profile}->{$default};
         }
     }
 }
@@ -113,7 +118,6 @@ foreach my $default (keys(%{ $config->{'profiles'}->{'default'} })){
 foreach my $key (keys(%{$opt})){
    if(!defined($opt->{$key})){ delete $opt->{$key}; }
 }
-
 
 ################################################################################
 # Use conventions to find out things we may not know.
@@ -195,9 +199,20 @@ if(! defined $opt->{'uri'}){
     }
     close(SRV);
 }
+################################################################################
+# vcenter items
+################################################################################
+
+if(! defined $opt->{'vcenter'}){
+    $opt->{'vcenter'} = "virtualcenter.$opt->{'domain'}";
+}
+if(! defined $opt->{'datacenter'}){   $opt->{'datacenter'} = "Nashville";              }
+if(! defined $opt->{'cluster'}){      $opt->{'cluster'}    = "EFTLAB";                 }
+if(! defined $opt->{'resourcepool'}){ $opt->{'cluster'}    = "Deployment_Lab";         }
+if(! defined $opt->{'host'}){         $opt->{'host'}       = "lab02.$opt->{'domain'}"; }
 
 ################################################################################
-# LDAP items
+# 
 ################################################################################
 print Data::Dumper->Dump([$opt]);
 exit 1;
