@@ -189,7 +189,9 @@ if(! defined $opt->{'uri'}){
     open(SRV,"dig +short -tsrv _ldaps._tcp.$opt->{'domain'}|")||die "dig failed: @!";
     while(my $line=<SRV>){
         chomp($line);
-        print "$line\n";
+        my ($priority, $weight, $port, $host) = split(/\s+/,$line);
+        $host=~s/\.$//; 
+        push(@{ $opt->{'uri'} },"ldaps://$host:$port");
     }
     close(SRV);
 }
