@@ -137,7 +137,8 @@ if(! defined $opt->{'domain'}){
     $opt->{'domain'} = $ENV{'WINDOWS_DOMAIN'} if $ENV{'WINDOWS_DOMAIN'};
 }
 if(! defined $opt->{'domain'}){
-    $opt->{'domain'} = `dnsdomainname`;
+    chomp($opt->{'domain'} = `dnsdomainname`);
+    
 }
 
 # password #
