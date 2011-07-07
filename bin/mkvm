@@ -169,6 +169,9 @@ if(! defined $opt->{'basedn'}){
 if(! defined $opt->{'binddn'}){
     $opt->{'binddn'} = $ENV{'LDAP_BINDDN'} if $ENV{'LDAP_BINDDN'};
 }
+if(! defined $opt->{'binddn'}){
+    $opt->{'binddn'} = "uid=$opt->{'username'},ou=People,$opt->{'basedn'}";
+}
 
 # bindpw #
 # see if it's in env
