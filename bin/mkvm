@@ -125,11 +125,11 @@ foreach my $key (keys(%{$opt})){
 # username #
 # see if it' in $env
 if(! defined $opt->{'username'}){
-    $opt->{'usernema'} = $ENV{'WINDOWS_USERNAME'} if $ENV{'WINDOWS_USERNAME'};
+    $opt->{'username'} = $ENV{'WINDOWS_USERNAME'} if $ENV{'WINDOWS_USERNAME'};
 }
 # go with our current username
 if(! defined $opt->{'username'}){
-    $opt->{'usernema'} = $ENV{'LOGNAME'} if $ENV{'LOGNAME'};
+    $opt->{'username'} = $ENV{'LOGNAME'} if $ENV{'LOGNAME'};
 }
 
 # domain #
