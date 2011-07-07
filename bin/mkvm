@@ -7,22 +7,23 @@ use strict;
 # find our installed libs and include them...
 BEGIN { 
         my $dir = dirname($0);
-        my $libs = [ 
+        my $vmlibs=[ 
                      "/usr/lib/vmware-vcli/apps",
                      "/usr/local/lib/vmware-vcli/apps",
-                     "./cpan/lib/perl5/5.8.8",
-                     "./cpan/lib/perl5/site_perl/5.8.8",
-                     "./cpan/lib/perl5/i386-linux-thread-multi",
-                     "./cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
-                     "./cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
-                     "/opt/local/instantiate/cpan/lib/perl5/5.8.8",
-                     "/opt/local/instantiate/cpan/lib/perl5/site_perl/5.8.8",
-                     "/opt/local/instantiate/cpan/lib/perl5/i386-linux-thread-multi",
-                     "/opt/local/instantiate/cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
-                     "/opt/local/instantiate/cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
-                     "./lib",
+                   ]
+        my $libs = [ 
+                     "cpan/lib/perl5/5.8.8",
+                     "cpan/lib/perl5/site_perl/5.8.8",
+                     "cpan/lib/perl5/i386-linux-thread-multi",
+                     "cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
+                     "cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
+                     "lib",
                    ];
-        foreach my $lib (@{ $libs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
+
+        foreach my $lib (@{ $vmlibs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
+        foreach my $d in ('.',$dir,'/opt/local/instantiate'){
+            foreach my $lib (@{ $libs }){ if(-d "$d/$lib"){ unshift(@INC,"$d/$lib"); } }
+        }
       };
 
 $ENV{'IFS'}  = ' \t\n';
