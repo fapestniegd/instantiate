@@ -10,7 +10,7 @@ BEGIN {
         my $vmlibs=[ 
                      "/usr/lib/vmware-vcli/apps",
                      "/usr/local/lib/vmware-vcli/apps",
-                   ]
+                   ];
         my $libs = [ 
                      "cpan/lib/perl5/5.8.8",
                      "cpan/lib/perl5/site_perl/5.8.8",
