@@ -32,7 +32,6 @@ $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
 $SIG{'INT'} = sub { ReadMode(0); };
 $SIG{'INT2'} = sub { ReadMode(0); };
 #################################################################################
-print join("\n",@INC);
 #
 use POE;
 use POE::Component::Instantiate;
