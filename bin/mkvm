@@ -143,7 +143,7 @@ if(! defined $opt->{'domain'}){
 
 # password #
 if(! defined $opt->{'password'}){
-    $opt->{'bindpw'} = $ENV{'WINDOWS_PASSWORD'} if $ENV{'WINDOWS_PASSWORD'};
+    $opt->{'password'} = $ENV{'WINDOWS_PASSWORD'} if $ENV{'WINDOWS_PASSWORD'};
 }
 # Prompt for credentials if none given or in env
 if(! defined $opt->{'password'}){
