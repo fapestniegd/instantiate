@@ -123,6 +123,7 @@ if(! defined $opt->{'password'}){
     ReadMode('noecho'); # don't echo
     chomp($opt->{'password'} = <STDIN>);
     ReadMode(0);        # back to normal
+    print "\n";
 }
 
 print "$opt->{'password'}\n";
