@@ -120,7 +120,7 @@ foreach my $key (keys(%{$opt})){
 # Use conventions to find out things we may not know.
 ################################################################################
 if(! defined $opt->{'password'}){
-    print("Password: ")
+    print("Password: ");
     ReadMode('noecho'); # don't echo
     chomp($opt->{'password'} = <STDIN>);
     ReadMode(0);        # back to normal
