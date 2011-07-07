@@ -11,7 +11,7 @@ BEGIN {
         }
         unshift @INC, "$dir/lib" if -d "$dir/lib";
         unshift @INC, "$dir/../lib" if -d "$dir/../lib";
-        unshift @INC, "/usr/local/instantiate/lib" if -d "/usr/local/instantiate/lib";
+        unshift @INC, "/opt/local/instantiate/lib" if -d "/opt/local/instantiate/lib";
       }
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
@@ -19,6 +19,7 @@ $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
 $SIG{'INT'} = sub { ReadMode(0); };
 $SIG{'INT2'} = sub { ReadMode(0); };
 #################################################################################
+print join("\n",@INC);
 #
 use POE;
 use POE::Component::Instantiate;
