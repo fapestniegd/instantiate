@@ -118,6 +118,33 @@ foreach my $key (keys(%{$opt})){
 ################################################################################
 # Use conventions to find out things we may not know.
 ################################################################################
+
+################################################################################
+# Active Directory Items
+################################################################################
+# username #
+# see if it' in $env
+if(! defined $opt->{'username'}){
+    $opt->{'usernema'} = $ENV{'WINDOWS_USERNAME'} if $ENV{'WINDOWS_USERNAME'};
+}
+# go with our current username
+if(! defined $opt->{'username'}){
+    $opt->{'usernema'} = $ENV{'LOGNAME'} if $ENV{'LOGNAME'};
+}
+
+# domain #
+if(! defined $opt->{'domain'}){
+    $opt->{'domain'} = $ENV{'WINDOWS_DOMAIN'} if $ENV{'WINDOWS_DOMAIN'};
+}
+if(! defined $opt->{'domain'}){
+    $opt->{'domain'} = `dnsdomainname`;
+}
+
+# password #
+if(! defined $opt->{'password'}){
+    $opt->{'bindpw'} = $ENV{'WINDOWS_PASSWORD'} if $ENV{'WINDOWS_PASSWORD'};
+}
+# Prompt for credentials if none given or in env
 if(! defined $opt->{'password'}){
     print("Password: ");
     ReadMode('noecho'); # don't echo
@@ -126,8 +153,36 @@ if(! defined $opt->{'password'}){
     print "\n";
 }
 
-print "$opt->{'password'}\n";
-exit;
+################################################################################
+# LDAP items
+################################################################################
+
+# basedn #
+if(! defined $opt->{'basedn'}){
+    $opt->{'basedn'} = $ENV{'LDAP_BASEDN'} if $ENV{'LDAP_BASEDN'};
+}
+if(! defined $opt->{'basedn'}){
+    $opt->{'basedn'} = "dc=".join(",dc=",split(/\./,$opt->{'domain'}));
+}
+
+# binddn #
+if(! defined $opt->{'binddn'}){
+    $opt->{'binddn'} = $ENV{'LDAP_BINDDN'} if $ENV{'LDAP_BINDDN'};
+}
+
+# bindpw #
+# see if it's in env
+if(! defined $opt->{'bindpw'}){
+    $opt->{'bindpw'} = $ENV{'LDAP_PASSWORD'} if $ENV{'LDAP_PASSWORD'};
+}
+
+# Assume we passsync between AD and LDAP
+if(! defined $opt->{'bindpw'}){
+    $opt->{'bindpw'} = $opt->{'password'};
+}
+
+print Data::Dumper->Dump([$opt]);
+exit 1;
 
 ################################################################################
 # If the service is vmware, we need 
