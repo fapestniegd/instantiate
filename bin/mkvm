@@ -185,6 +185,19 @@ if(! defined $opt->{'bindpw'}){
     $opt->{'bindpw'} = $opt->{'password'};
 }
 
+if(! defined $opt->{'uri'}){
+    open(SRV,"dig +short -tsrv _ldaps._tcp.$opt->{'domain'}|")||die "dig failed: @!";
+    while(my $line=<SRV>){
+        chomp($line);
+        print "$line\n";
+    }
+    close(SRV);
+    $opt->{'uri'} = split(
+}
+
+################################################################################
+# LDAP items
+################################################################################
 print Data::Dumper->Dump([$opt]);
 exit 1;
 
