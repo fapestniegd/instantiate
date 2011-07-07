@@ -21,7 +21,7 @@ BEGIN {
                    ];
 
         foreach my $lib (@{ $vmlibs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
-        foreach my $d in ('.',$dir,'/opt/local/instantiate'){
+        foreach my $d ('.',$dir,'/opt/local/instantiate'){
             foreach my $lib (@{ $libs }){ if(-d "$d/$lib"){ unshift(@INC,"$d/$lib"); } }
         }
       };
