@@ -98,7 +98,7 @@ if(defined($opt->{'config'})){
 delete $opt->{'config'};
 
 my $profile='default';
-if(defined($opt->{'provile'})){ 
+if(defined($opt->{'profile'})){ 
     $profile=$opt->{'profile'};
 }
     
@@ -203,13 +203,6 @@ if(! defined $opt->{'uri'}){
 # vcenter items
 ################################################################################
 
-if(! defined $opt->{'vcenter'}){
-    $opt->{'vcenter'} = "virtualcenter.$opt->{'domain'}";
-}
-if(! defined $opt->{'datacenter'}){   $opt->{'datacenter'} = "Nashville";              }
-if(! defined $opt->{'cluster'}){      $opt->{'cluster'}    = "EFTLAB";                 }
-if(! defined $opt->{'resourcepool'}){ $opt->{'cluster'}    = "Deployment_Lab";         }
-if(! defined $opt->{'host'}){         $opt->{'host'}       = "lab02.$opt->{'domain'}"; }
 
 ################################################################################
 # 
