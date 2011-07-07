@@ -4,15 +4,27 @@
 ################################################################################
 use File::Basename;
 use strict;
-BEGIN {
+# find our installed libs and include them...
+BEGIN { 
         my $dir = dirname($0);
-        if(-d "/usr/local/lib/vmware-vcli/apps"){
-            unshift(@INC,"/usr/local/lib/vmware-vcli/apps")
-        }
-        unshift @INC, "$dir/lib" if -d "$dir/lib";
-        unshift @INC, "$dir/../lib" if -d "$dir/../lib";
-        unshift @INC, "/opt/local/instantiate/lib" if -d "/opt/local/instantiate/lib";
-      }
+        my $libs = [ 
+                     "/usr/lib/vmware-vcli/apps",
+                     "/usr/local/lib/vmware-vcli/apps",
+                     "./cpan/lib/perl5/5.8.8",
+                     "./cpan/lib/perl5/site_perl/5.8.8",
+                     "./cpan/lib/perl5/i386-linux-thread-multi",
+                     "./cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
+                     "./cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
+                     "/opt/local/instantiate/cpan/lib/perl5/5.8.8",
+                     "/opt/local/instantiate/cpan/lib/perl5/site_perl/5.8.8",
+                     "/opt/local/instantiate/cpan/lib/perl5/i386-linux-thread-multi",
+                     "/opt/local/instantiate/cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
+                     "/opt/local/instantiate/cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
+                     "./lib",
+                   ];
+        foreach my $lib (@{ $libs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
+      };
+
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
 $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
