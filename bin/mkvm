@@ -1,0 +1,220 @@
+#!/usr/bin/perl
+################################################################################
+# A skeleton POE wrapper to test how the functionality will work in a bot
+################################################################################
+use File::Basename;
+use strict;
+BEGIN {
+        my $dir = dirname($0);
+        if(-d "/usr/local/lib/vmware-vcli/apps"){
+            unshift(@INC,"/usr/local/lib/vmware-vcli/apps")
+        }
+        unshift @INC, "$dir/lib" if -d "$dir/lib";
+        unshift @INC, "$dir/../lib" if -d "$dir/../lib";
+        unshift @INC, "/usr/local/instantiate/lib" if -d "/usr/local/instantiate/lib";
+      }
+$ENV{'IFS'}  = ' \t\n';
+$ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
+$ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
+$SIG{'INT'} = sub {ReadMode(0);}
+$SIG{'INT2'} = sub {ReadMode(0);}
+#################################################################################
+#
+use POE;
+use POE::Component::Instantiate;
+
+################################################################################
+# This script will read in the defaults for your environment, and allow you to
+# override them.
+use Getopt::Long;
+$Getopt::Long::ignorecase = 0;
+
+use Data::Dumper;
+use YAML;
+my $opt={};
+my $result = GetOptions(
+  'aws-secret'        => \$opt->{'aws_secret'},      'S=s'  => \$opt->{'aws_secret'},
+  'aws-secret_key'    => \$opt->{'aws_secret_key'},  'K=s'  => \$opt->{'aws_secret_key'},
+  'basedn=s'          => \$opt->{'basedn'},          'b=s'  => \$opt->{'basedn'},
+  'binddn=s'          => \$opt->{'binddn'},          'D=s'  => \$opt->{'binddn'},
+  'cluster=s'         => \$opt->{'cluster'},         'C=s'  => \$opt->{'cluster'},
+  'config=s'          => \$opt->{'config'},          'c=s'  => \$opt->{'config'},
+  'datacenter=s'      => \$opt->{'datacenter'},      'dc=s' => \$opt->{'datacenter'},
+  'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
+  'host=s'            => \$opt->{'host'},
+  'ip=s'              => \$opt->{'ip'},
+  'lun=s'             => sub { push(@{$opt->{'lun'}}, $_[1]) }, # LUNs are multi-valued
+  'linode_username=s' => \$opt->{'linode_username'},
+  'linode_password=s' => \$opt->{'linode_password'},
+  'name=s'            => \$opt->{'name'},            'n=s'  => \$opt->{'name'},
+  'network=s'         => sub { push(@{$opt->{'network'}}, $_[1]) }, # NICs are Multi-valued
+  'N=s'               => sub { push(@{$opt->{'network'}}, $_[1]) }, # NICs are Multi-valued
+  'os=s'              => \$opt->{'os'},
+  'password=s'        => \$opt->{'password'},                   # windows password (vcenter)
+  'p=s'               => \$opt->{'password'},                   # windows password (vcenter)
+  'service=s'         => \$opt->{'service'},                    # vcenter, linode, ec2
+  'profile=s'         => \$opt->{'profile'},
+  'P=s'               => \$opt->{'profile'},
+  'resourcepool=s'    => \$opt->{'resourcepool'},
+  'type=s'            => \$opt->{'type'},                       # service specific: 32:1x512
+  'uri=s'             => sub { push(@{$opt->{'uri'}}, $_[1]) },
+  'H=s'               => sub { push(@{$opt->{'uri'}}, $_[1]) }, # -H in ldapsearch
+  'username=s'        => \$opt->{'username'},                   # windows username (vcenter)
+  'U=s'               => \$opt->{'username'},                   # windows username (vcenter)
+  'vcenter=s'         => \$opt->{'vcenter'},         'v=s' => \$opt->{'vcenter'},
+  'ldap_pass=s'       => \$opt->{'bindpass'},
+  'w=s'               => \$opt->{'bindpass'},
+); 
+
+################################################################################
+# Get our defaults from the config file
+#
+my $config;
+if(defined($opt->{'config'})){ 
+    if( -f $opt->{'config'} ){
+        $config = YAML::LoadFile($opt->{'config'}) if( -f $opt->{'config'} );
+    }else{
+        # if they specified a config that doesn't exist, don't continue.
+        print STDERR "$opt->{'config'} not found.\n";
+        exit 1;
+    }
+}else{
+    $opt->{'config'} = "$ENV{'HOME'}/.mkvmrc";
+    $config = YAML::LoadFile($opt->{'config'}) if( -f $opt->{'config'} );
+}
+delete $opt->{'config'};
+
+################################################################################
+# if the user didn't provide us one or any of the things above, we have to make 
+# an attempt to decide what they are before bailing... what we need depends on 
+# the service specified, if none, we pick vcenter
+################################################################################
+foreach my $default (keys(%{ $config->{'profiles'}->{'default'} })){
+    if(!defined($opt->{$default})){ 
+        if( $config->{'profiles'}->{'default'}->{$default}){
+            $opt->{$default} = $config->{'profiles'}->{'default'}->{$default};
+        }
+    }
+}
+# delete undefined keys;
+foreach my $key (keys(%{$opt})){
+   if(!defined($opt->{$key})){ delete $opt->{$key}; }
+}
+
+
+################################################################################
+# Use conventions to find out things we may not know.
+################################################################################
+if(! defined $opt->{'password'}){
+    print("Password: ")
+    ReadMode('noecho'); # don't echo
+    chomp($opt->{'password'} = <STDIN>);
+    ReadMode(0);        # back to normal
+}
+
+print "$opt->{'password'}\n";
+exit;
+
+################################################################################
+# If the service is vmware, we need 
+# [ username, domain, password ]
+# [ vcneter, datacenter, cluster, host, resourcepool]
+# [ ip(s), network(s), lun(s) ]
+# [ type, name, os ]
+################################################################################
+if(!defined($opt->{'service'})){ $opt->{'service'} = 'vcenter'; }
+if($opt->{'service'} eq 'vcenter'){
+   ############################################################################
+   # convert our format to what the viperl api expects
+   ############################################################################
+    my $guestid = 'rhel5Guest' if($opt->{'os'} eq 'CentOS 5');
+    my ($datastore, $disksize) = split(/:/,shift(@{ $opt->{'lun'} }));
+    my ($arch, $num_cpus, $memory) = split(/x/,shift(@{ $opt->{'type'} }));
+    my $nic_network = shift(@{ $opt->{'network'} });
+    my $uri = shift(@{ $opt->{'uri'} });
+   ############################################################################
+    # This is our clipboard, it has the job wer're going to pass around
+    ############################################################################
+    my $data = { 
+                 'sp'   => { # servic provider we call actions against
+                             'actions'    => 'VMware::ESX',
+                             'connection' => { # virtualcenter uses windows creds
+                                               'server'   => $opt->{'vcenter'},
+                                               'username' => $opt->{'username'},
+                                               'password' => $opt->{'password'},
+                                             },
+                           },
+                 'ldap' => { # credentials for updates to LDAP
+                             'uri'         => $uri,
+                             'base_dn'     => $opt->{'basedn'},
+                             'bind_dn'     => $opt->{'binddn'},
+                             'password'    => $opt->{'bindpw'},
+                             'dhcp_basedn' => "cn=DHCP,$opt->{'basedn'}",
+                           },
+             'dhcplinks'=> "http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi",
+
+                 'cb'   => { # clipboard passed from task to task
+                             'hostname'       => $opt->{'name'},
+                             'vmname'         => $opt->{'name'},
+                             'fqdn'           => $opt->{'name'},
+                             'ipaddress'      => $opt->{'ip'},
+                             'vmhost'         => $opt->{'host'},
+                             'datacenter'     => $opt->{'datacenter'},
+                             'guestid'        => $guestid,
+                             'datastore'      => $datastore,
+                             'disksize'       => $disksize,
+                             'memory'         => $memory,
+                             'num_cpus'       => $num_cpus,
+                             'nic_network'    => $nic_network,
+                             'nic_poweron'    => 0,
+                             'resource_pool'  => $opt->{'resourcepool'},
+                             'dhcplinks'      => "http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi",
+                           },
+                 'task' => 'redeploy', # what we're asking it use the clipboard for
+             };
+    ############################################################################
+    #
+    ############################################################################
+    # get the handle to the controller, issue the work to be done and on what
+    sub _start {
+        my ( $self, $kernel, $heap, $sender, @args) = 
+         @_[OBJECT,  KERNEL,  HEAP,  SENDER, ARG0 .. $#_];
+        $heap->{'control'} = POE::Component::Instantiate->new($data);
+        $kernel->post( $heap->{'control'}, $data->{'task'});
+      }
+    
+    # tear down the connection to the service provider/vcenter server
+    sub _stop {
+        my ( $self, $kernel, $heap, $sender, @args) = 
+         @_[OBJECT,  KERNEL,  HEAP,  SENDER, ARG0 .. $#_];
+        $kernel->post( $heap->{'control'}, '_stop' );
+    }
+    ############################################################################
+    #
+    ############################################################################
+    # Do it now
+    POE::Session->create(
+                          inline_states => {
+                                             _start   => \&_start,
+                                             _stop    => \&_stop,
+                                           }
+                        );
+    
+    POE::Kernel->run();
+    exit 0;
+    #############################################################################
+    #
+    #############################################################################
+
+}
+################################################################################
+# for aws we'll need
+# [ aws_secret, aws_secret_key ]
+# [ datacenter, type, name ]
+################################################################################
+
+################################################################################
+# for linode we'll need
+# [ linode_username, linode_password ]
+# [ datacenter, type, lun(s), name, os ]
+################################################################################
