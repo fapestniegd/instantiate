@@ -127,7 +127,6 @@ my $result = GetOptions(
 # Get our defaults from the config file
 #
 if(defined($opt->{'help'})){ 
-if(defined($opt->{'h'})){ 
     usage();
     exit 0;
 }
