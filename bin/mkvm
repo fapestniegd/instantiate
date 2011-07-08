@@ -91,8 +91,11 @@ if(defined($opt->{'config'})){
         print STDERR "$opt->{'config'} not found.\n";
         exit 1;
     }
-}else{
+}elsif(-f "$ENV{'HOME'}/.mkvmrc"){
     $opt->{'config'} = "$ENV{'HOME'}/.mkvmrc";
+    $config = YAML::LoadFile($opt->{'config'}) if( -f $opt->{'config'} );
+}elsif(-f "/etc/.mkvmrc"){
+    $opt->{'config'} = "/etc/mkvmrc";
     $config = YAML::LoadFile($opt->{'config'}) if( -f $opt->{'config'} );
 }
 delete $opt->{'config'};
@@ -200,7 +203,7 @@ if(! defined $opt->{'uri'}){
     close(SRV);
 }
 ################################################################################
-# host specific items
+# host specific items name, ip
 ################################################################################
 if(! defined $opt->{'name'}){
     print("hostname: ");
@@ -217,6 +220,7 @@ unless($opt->{'name'}=~m/\./){
 print "$opt->{'name'}\n";
 
 
+# ip #
 if(! defined $opt->{'ip'}){
     open(A,"dig +short $opt->{'name'}|")||warn "lookup for ip failed: @!";
     while(my $line=<A>){ # this will always get the last one.
@@ -235,10 +239,8 @@ if(! defined $opt->{'ip'}){
 }
 
 ################################################################################
-# 
+#  Redeploy the host
 ################################################################################
-print Data::Dumper->Dump([$opt]);
-exit 1;
 
 ################################################################################
 # If the service is vmware, we need 
