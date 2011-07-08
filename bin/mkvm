@@ -211,7 +211,7 @@ if(! defined $opt->{'name'}){
     print "please provide a hostname\n";
     exit 1;
 }
-if(! $opt->{'name'}=~/\./){
+unless($opt->{'name'}=~m/\./){
     $opt->{'name'}="$opt->{'name'}.$opt->{'domain'}";
 }
 print "$opt->{'name'}\n";
