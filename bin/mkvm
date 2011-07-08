@@ -29,8 +29,8 @@ BEGIN {
 $ENV{'IFS'}  = ' \t\n';
 $ENV{'HOME'} = $1 if $ENV{'HOME'}=~m/(.*)/;
 $ENV{'PATH'} = "/usr/local/bin:/usr/bin:/bin";
-$SIG{'INT'} = sub { ReadMode(0); };
-$SIG{'INT2'} = sub { ReadMode(0); };
+$SIG{'INT'} = sub { ReadMode(0); exit 2; };
+$SIG{'INT2'} = sub { ReadMode(0); exit 2; };
 #################################################################################
 #
 use POE;
