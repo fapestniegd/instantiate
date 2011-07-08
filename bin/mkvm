@@ -46,7 +46,7 @@ Option Type   Short Option     || Long Option                 || env variable
 Config:
               -c  <cf_file>    ||--confir=<cf_file>
               -P  <profile>    ||--profile=<profile>
-              -s  <service>    ||--service=<service>           (vmware_esx)
+              -s  <service>    ||--service=<service>
 Guest: 
               -n  <name>       ||--name=<name> 
               -i  <ip>         ||--ip=<ip> 
@@ -66,6 +66,7 @@ VMware:
               -dc <datacenter> ||--datacenter=<datacenter>
               -C  <cluster>    ||--cluster=<cluster>
               -r  <respool>    ||--resourcepool=<respool>
+                               ||--host=<esxhost>
               -l  <LUN>        ||--lun=<LUN>
               -N  <network>    ||--network=<network>
 AWS:
@@ -75,6 +76,20 @@ Linode:
                                ||--linode_username=<username>
                                ||--linode_password=<password>
 
+EXAMPLES:
+  mkvm -n redwood.lab.eftdomain.net
+
+  mkvm --service=vcneter --vcenter=virtualcenter.eftdomain.net            \
+       --profile=default                                                  \
+       --datacenter=Nashville --clustter="EFTLAB"                         \
+       --resourcepool="Deployment_Lab" --lun=LUN300:10485760              \
+       --network=VLAN_113 --host=lab02.eftdomain.net                      \
+       --type=32x1x512  --os="CentOS 5" --name="badger.lab.eftdomain.net" \
+       --ip=192.168.13.162
+
+
+NOTES: anything not explicitly specified will be looked up or taken from the 
+       specified profile (or "default" if not specified) in ~/.mkvmrc or /etc/mkvmrc
 ...
 }
 
@@ -130,6 +145,7 @@ if(defined($opt->{'help'})){
     usage();
     exit 0;
 }
+
 my $config;
 if(defined($opt->{'config'})){ 
     if( -f $opt->{'config'} ){
