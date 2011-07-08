@@ -190,7 +190,7 @@ if(! defined $opt->{'bindpw'}){
 }
 
 if(! defined $opt->{'uri'}){
-    open(SRV,"dig +short -tsrv _ldaps._tcp.$opt->{'domain'}|")||die "dig failed: @!";
+    open(SRV,"dig +short -tsrv _ldaps._tcp.$opt->{'domain'}|")||warn "lookup for SRV records failed: @!";
     while(my $line=<SRV>){
         chomp($line);
         my ($priority, $weight, $port, $host) = split(/\s+/,$line);
@@ -215,7 +215,7 @@ if(! $opt->{'name'}=~/\./){
     $opt->{'name'}="$opt->{'name'}.$opt->{'domain'}";
 }
 if(! defined $opt->{'ip'}){
-    open(A,"dig +short $opt->{'name'}")||die "dig failed: @!";
+    open(A,"dig +short $opt->{'name'}")||warn "lookup for ip failed: @!";
     while(my $line=<A>){ # this will always get the last one.
         chomp($line);
         $opt->{'ip'} = $line;
