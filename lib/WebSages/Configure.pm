@@ -617,7 +617,7 @@ sub host_record_updates{
         
         my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
         next if($ldap == 1);
-        $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
+        $mesg = $ldap->bind( $self->{'bind_dn'}, password => $self->{'password'} );
         undef $servers unless $mesg->{'resultCode'};
         $mesg->code && print STDERR $mesg->error."\n";
         if($existing_entry){
@@ -681,7 +681,7 @@ use Net::LDAP;
         }
         my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
         next if($ldap == 1);
-        $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
+        $mesg = $ldap->bind( $self->{'bind_dn'}, password => $self->{'password'} );
         $mesg->code && print STDERR $mesg->error."\n";
         next if $mesg->code;
         my $records = $ldap->search( 
@@ -906,7 +906,7 @@ sub update_ldap_entry{
         if($server=~m/(.*)/){ $server=$1 if ($server=~m/(^[A-Za-z0-9\-\.\/:]+$)/); }
         my $ldap = Net::LDAP->new($server) || warn "could not connect to $server $@";
         next if($ldap == 1);
-        $mesg = $ldap->bind( $ENV{'LDAP_BINDDN'}, password => $ENV{'LDAP_PASSWORD'});
+	$mesg = $ldap->bind( $self->{'bind_dn'}, password => $self->{'password'} );
         undef $servers unless $mesg->{'resultCode'};
         $mesg->code && print STDERR $mesg->error."\n";
         $mesg = $ldap->add( $entry );

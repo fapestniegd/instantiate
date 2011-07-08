@@ -205,6 +205,7 @@ if(! defined $opt->{'uri'}){
 ################################################################################
 # host specific items name, ip
 ################################################################################
+# name (hostname, displayname) #
 if(! defined $opt->{'name'}){
     print("hostname: ");
     chomp($opt->{'name'} = <STDIN>);
@@ -217,8 +218,6 @@ if(! defined $opt->{'name'}){
 unless($opt->{'name'}=~m/\./){
     $opt->{'name'}="$opt->{'name'}.$opt->{'domain'}";
 }
-print "$opt->{'name'}\n";
-
 
 # ip #
 if(! defined $opt->{'ip'}){
