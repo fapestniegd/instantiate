@@ -38,6 +38,7 @@ use POE::Component::Instantiate;
 
 sub usage{
 print<<"...";
+$0: create or re-deploy a host
 Usage: $0 [ options ]  
 
 ################################################################################
@@ -77,7 +78,9 @@ Linode:
                                ||--linode_password=<password>
 
 EXAMPLES:
-  mkvm -n redwood.lab.eftdomain.net
+  export WINDOWS_PASSWORD='S3kr3tz'; mkvm -n redwood.lab.eftdomain.net
+
+  env WINDOWS_PASSWORD='S3kr3tz' mkvm -n redwood.lab.eftdomain.net
 
   mkvm --service=vcneter --vcenter=virtualcenter.eftdomain.net            \
        --profile=default                                                  \
@@ -113,7 +116,7 @@ my $result = GetOptions(
   'config=s'          => \$opt->{'config'},          'c=s'  => \$opt->{'config'},
   'datacenter=s'      => \$opt->{'datacenter'},      'dc=s' => \$opt->{'datacenter'},
   'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
-  'host=s'            => \$opt->{'host'},            'H=s'  =>  \$opt->{'host'},
+  'host=s'            => \$opt->{'host'},
   'ip=s'              => \$opt->{'ip'},
   'lun=s'             => sub { push(@{$opt->{'lun'}}, $_[1]) }, # LUNs are multi-valued
   'linode_username=s' => \$opt->{'linode_username'},
