@@ -205,7 +205,7 @@ if(! defined $opt->{'uri'}){
 if(! defined $opt->{'name'}){
     print("hostname: ");
     chomp($opt->{'name'} = <STDIN>);
-    print "\n";
+    delete $opt->{'ip'} unless($opt->{'name'}=~m/\S+/); 
 }
 if(! defined $opt->{'name'}){
     print "please provide a hostname\n";
@@ -214,6 +214,9 @@ if(! defined $opt->{'name'}){
 if(! $opt->{'name'}=~/\./){
     $opt->{'name'}="$opt->{'name'}.$opt->{'domain'}";
 }
+print "$opt->{'name'}\n";
+
+
 if(! defined $opt->{'ip'}){
     open(A,"dig +short $opt->{'name'}")||warn "lookup for ip failed: @!";
     while(my $line=<A>){ # this will always get the last one.
