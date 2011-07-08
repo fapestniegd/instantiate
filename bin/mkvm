@@ -218,7 +218,7 @@ if(! defined $opt->{'ip'}){
     open(A,"dig +short $opt->{'name'}")||die "dig failed: @!";
     while(my $line=<A>){ # this will always get the last one.
         chomp($line);
-        my ($opt->{'ip'}) = $line;
+        $opt->{'ip'} = $line;
     }
 }
 if(! defined $opt->{'ip'}){
