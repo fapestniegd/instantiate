@@ -224,7 +224,7 @@ if(! defined $opt->{'ip'}){
 if(! defined $opt->{'ip'}){
     print("ip address: ");
     chomp($opt->{'ip'} = <STDIN>);
-    print "\n";
+    delete $opt->{'ip'} unless($opt->{'ip'}=~m/\S+/); 
 }
 if(! defined $opt->{'ip'}){
     print "please provide an ip address or put it in DNS.\n";
