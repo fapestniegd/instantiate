@@ -200,8 +200,17 @@ if(! defined $opt->{'uri'}){
     close(SRV);
 }
 ################################################################################
-# vcenter items
+# host specific items
 ################################################################################
+if(! defined $opt->{'name'}){
+    print("hostname: ");
+    chomp($opt->{'name'} = <STDIN>);
+    print "\n";
+}
+if(! defined $opt->{'name'}){
+    print "please provide a hostname\n";
+    exit 1;
+}
 
 
 ################################################################################
