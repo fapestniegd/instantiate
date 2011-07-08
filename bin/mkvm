@@ -218,7 +218,7 @@ print "$opt->{'name'}\n";
 
 
 if(! defined $opt->{'ip'}){
-    open(A,"dig +short $opt->{'name'}")||warn "lookup for ip failed: @!";
+    open(A,"dig +short $opt->{'name'}|")||warn "lookup for ip failed: @!";
     while(my $line=<A>){ # this will always get the last one.
         chomp($line);
         $opt->{'ip'} = $line;
