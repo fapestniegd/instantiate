@@ -36,6 +36,48 @@ $SIG{'INT2'} = sub { ReadMode(0); exit 2; };
 use POE;
 use POE::Component::Instantiate;
 
+sub usage{
+print<<"...";
+Usage: $0 [ options ]  
+
+################################################################################
+Option Type   Short Option     || Long Option                    || env variable
+-----------   ------------        ------------                      ------------
+Config:
+              -c  <cf_file>    || --confir=<cf_file>
+              -P  <profile>    || --profile=<profile>
+              -s  <service>    || --service=<service>   (vmware_esx, linode, aws)
+Guest: 
+              -n  <name>       || --name=<name> 
+              -i  <ip>         || --ip=<ip> 
+              -o  <OS>         || --os=<os> 
+              -t  <type>       || --type=<type> 
+Windows AD:
+              -d <domain>      || --domain=<domain>
+              -p <password>    || --password=<password>
+              -U <username>    || --username=<username>
+LDAP:
+              -H  <uri>        || --uri=<uri>
+              -b  <base_dn>    || --basedn=<base_dn>
+              -D  <bind_dn>    || --binddn=<bind_dn>
+              -w  <bind_pw>    || --bindpw=<bind_dn>
+VMware:
+              -v  <vcenter_srv>|| --vcneter=<vcenter_srv>
+              -dc <datacenter> || --datacenter=<datacenter>
+              -C  <cluster>    || --cluster=<cluster>
+              -r  <respool>    || --resourcepool=<respool>
+              -l  <LUN>        || --lun=<LUN>
+              -N  <network>    || --network=<network>
+AWS:
+              -S  <secret>     || --aws-secret=<secret>         || $AWS_SECRET
+              -K  <secret_key> || --aws-secret_key=<secret_key> || $AWS_SECRET_KEY
+Linode:
+                               || --linode_username=<username>
+                               || --linode_password=<password>
+
+...
+}
+
 ################################################################################
 # This script will read in the defaults for your environment, and allow you to
 # override them.
@@ -46,15 +88,17 @@ use Data::Dumper;
 use YAML;
 my $opt={};
 my $result = GetOptions(
-  'aws-secret'        => \$opt->{'aws_secret'},      'S=s'  => \$opt->{'aws_secret'},
-  'aws-secret_key'    => \$opt->{'aws_secret_key'},  'K=s'  => \$opt->{'aws_secret_key'},
+  'help'              => \$opt->{'help'},
+  'h'                 => \$opt->{'help'},
+  'aws-secret=s'      => \$opt->{'aws_secret'},      'S=s'  => \$opt->{'aws_secret'},
+  'aws-secret_key=s'  => \$opt->{'aws_secret_key'},  'K=s'  => \$opt->{'aws_secret_key'},
   'basedn=s'          => \$opt->{'basedn'},          'b=s'  => \$opt->{'basedn'},
   'binddn=s'          => \$opt->{'binddn'},          'D=s'  => \$opt->{'binddn'},
   'cluster=s'         => \$opt->{'cluster'},         'C=s'  => \$opt->{'cluster'},
   'config=s'          => \$opt->{'config'},          'c=s'  => \$opt->{'config'},
   'datacenter=s'      => \$opt->{'datacenter'},      'dc=s' => \$opt->{'datacenter'},
   'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
-  'host=s'            => \$opt->{'host'},
+  'host=s'            => \$opt->{'host'},            'H=s'  =>  \$opt->{'host'},
   'ip=s'              => \$opt->{'ip'},
   'lun=s'             => sub { push(@{$opt->{'lun'}}, $_[1]) }, # LUNs are multi-valued
   'linode_username=s' => \$opt->{'linode_username'},
@@ -75,13 +119,18 @@ my $result = GetOptions(
   'username=s'        => \$opt->{'username'},                   # windows username (vcenter)
   'U=s'               => \$opt->{'username'},                   # windows username (vcenter)
   'vcenter=s'         => \$opt->{'vcenter'},         'v=s' => \$opt->{'vcenter'},
-  'ldap_pass=s'       => \$opt->{'bindpass'},
-  'w=s'               => \$opt->{'bindpass'},
+  'bindpw=s'       => \$opt->{'bindpw'},
+  'w=s'               => \$opt->{'bindpw'},
 ); 
 
 ################################################################################
 # Get our defaults from the config file
 #
+if(defined($opt->{'help'})){ 
+if(defined($opt->{'h'})){ 
+    usage();
+    exit 0;
+}
 my $config;
 if(defined($opt->{'config'})){ 
     if( -f $opt->{'config'} ){
