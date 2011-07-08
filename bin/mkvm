@@ -41,39 +41,39 @@ print<<"...";
 Usage: $0 [ options ]  
 
 ################################################################################
-Option Type   Short Option     || Long Option                    || env variable
------------   ------------        ------------                      ------------
+Option Type   Short Option     || Long Option                 || env variable
+-----------   ------------        ------------                   ------------
 Config:
-              -c  <cf_file>    || --confir=<cf_file>
-              -P  <profile>    || --profile=<profile>
-              -s  <service>    || --service=<service>              (vmware_esx)
+              -c  <cf_file>    ||--confir=<cf_file>
+              -P  <profile>    ||--profile=<profile>
+              -s  <service>    ||--service=<service>           (vmware_esx)
 Guest: 
-              -n  <name>       || --name=<name> 
-              -i  <ip>         || --ip=<ip> 
-              -o  <OS>         || --os=<os> 
-              -t  <type>       || --type=<type> 
-Windows AD:
-              -d <domain>      || --domain=<domain>
-              -p <password>    || --password=<password>           || \$WINDOWS_PASSWORD
-              -U <username>    || --username=<username>           || \$WINDOWS_USERNAME
+              -n  <name>       ||--name=<name> 
+              -i  <ip>         ||--ip=<ip> 
+              -o  <OS>         ||--os=<os> 
+              -t  <type>       ||--type=<type> 
+Windows AD
+              -d <domain>      ||--domain=<domain>
+              -p <password>    ||--password=<password>     || \$WINDOWS_PASSWORD
+              -U <username>    ||--username=<username>     || \$WINDOWS_USERNAME
 LDAP:
-              -H  <uri>        || --uri=<uri>
-              -b  <base_dn>    || --basedn=<base_dn>              || \$LDAP_BASEDN
-              -D  <bind_dn>    || --binddn=<bind_dn>              || \$LDAP_BINDDN
-              -w  <bind_pw>    || --bindpw=<bind_dn>              || \$LDAP_BINDPW
+              -H  <uri>        ||--uri=<uri>
+              -b  <base_dn>    ||--basedn=<base_dn>           || \$LDAP_BASEDN
+              -D  <bind_dn>    ||--binddn=<bind_dn>           || \$LDAP_BINDDN
+              -w  <bind_pw>    ||--bindpw=<bind_dn>           || \$LDAP_BINDPW
 VMware:
-              -v  <vcenter_srv>|| --vcneter=<vcenter_srv>
-              -dc <datacenter> || --datacenter=<datacenter>
-              -C  <cluster>    || --cluster=<cluster>
-              -r  <respool>    || --resourcepool=<respool>
-              -l  <LUN>        || --lun=<LUN>
-              -N  <network>    || --network=<network>
+              -v  <vcenter_srv>||--vcneter=<vcenter_srv>
+              -dc <datacenter> ||--datacenter=<datacenter>
+              -C  <cluster>    ||--cluster=<cluster>
+              -r  <respool>    ||--resourcepool=<respool>
+              -l  <LUN>        ||--lun=<LUN>
+              -N  <network>    ||--network=<network>
 AWS:
-              -S  <secret>     || --aws-secret=<secret>         || \$AWS_SECRET
-              -K  <secret_key> || --aws-secret_key=<secret_key> || \$AWS_SECRET_KEY
+              -S  <secret>     ||--aws-secret=<secret>        || \$AWS_SECRET
+              -K  <secret_key> ||--aws-secret_key=<secret_key>|| \$AWS_SECRET_KEY
 Linode:
-                               || --linode_username=<username>
-                               || --linode_password=<password>
+                               ||--linode_username=<username>
+                               ||--linode_password=<password>
 
 ...
 }
