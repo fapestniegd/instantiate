@@ -211,7 +211,25 @@ if(! defined $opt->{'name'}){
     print "please provide a hostname\n";
     exit 1;
 }
-
+if(! $opt->{'name'}=~/\./){
+    $opt->{'name'}="$opt->{'name'}.$opt->{'domain'}";
+}
+if(! defined $opt->{'ip'}){
+    open(A,"dig +short $opt->{'name'}")||die "dig failed: @!";
+    while(my $line=<A>){ # this will always get the last one.
+        chomp($line);
+        my ($opt->{'ip'}) = $line;
+    }
+}
+if(! defined $opt->{'ip'}){
+    print("ip address: ");
+    chomp($opt->{'ip'} = <STDIN>);
+    print "\n";
+}
+if(! defined $opt->{'ip'}){
+    print "please provide an ip address or put it in DNS.\n";
+    exit 1;
+}
 
 ################################################################################
 # 
