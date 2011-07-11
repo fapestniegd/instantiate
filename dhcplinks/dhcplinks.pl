@@ -235,7 +235,7 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                              'hostname'   => $hostname, 
                              'fqdn'       => $h->{'id'}, 
                              'domainname' => $cfg->{'domain'},
-                             'next-server' => $h->{'next-server'},
+                             'next_server' => $h->{'next-server'},
                            };
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
                 # link C0A8NNMM -> <installer>

@@ -1,6 +1,6 @@
 all: install test
 
-install: install_cgi install_pl install_watcher install templates
+install: install_cgi install_pl install_watcher install_templates
 
 install_templates: 
 	scp tftpboot/pxelinux.menus/templates/*.tpl root@newton:/opt/local/tftpboot/pxelinux.menus/templates/
