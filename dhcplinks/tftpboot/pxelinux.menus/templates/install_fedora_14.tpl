@@ -19,4 +19,4 @@ default pxelinux.kernels/com32/menu.c32
 label brahe
        menu label Redeploy [% fqdn %] (Fedora 14 Workstation)
        kernel pxelinux.kernels/fedora-14/vmlinuz 
-       append initrd=pxelinux.kernels/fedora-14/initrd.img ip=dhcp ks=http://newton.eftdomain.net/cgi-bin/kickstart.cgi text
+       append initrd=pxelinux.kernels/fedora-14/initrd.img ip=dhcp ks=http://[% next_server %]/cgi-bin/kickstart.cgi text
