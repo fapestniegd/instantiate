@@ -48,6 +48,7 @@ Config:
               -c  <cf_file>    ||--confir=<cf_file>
               -P  <profile>    ||--profile=<profile>
               -s  <service>    ||--service=<service>
+              -I  <server>     ||--install-server=<server>
 Guest: 
               -n  <name>       ||--name=<name> 
               -i  <ip>         ||--ip=<ip> 
@@ -117,7 +118,8 @@ my $result = GetOptions(
   'datacenter=s'      => \$opt->{'datacenter'},      'dc=s' => \$opt->{'datacenter'},
   'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
   'host=s'            => \$opt->{'host'},
-  'ip=s'              => \$opt->{'ip'},
+  'ip=s'              => \$opt->{'ip'},              'i=s'  => \$opt->{'domain'},
+  'I=s'               => \$opt->{'next-server'},     'I=s'  => \$opt->{'next-server'},
   'lun=s'             => sub { push(@{$opt->{'lun'}}, $_[1]) }, # LUNs are multi-valued
   'linode_username=s' => \$opt->{'linode_username'},
   'linode_password=s' => \$opt->{'linode_password'},
@@ -294,13 +296,20 @@ if(! defined $opt->{'ip'}){
         $opt->{'ip'} = $line;
     }
 }
+
 if(! defined $opt->{'ip'}){
     print("ip address: ");
     chomp($opt->{'ip'} = <STDIN>);
     delete $opt->{'ip'} unless($opt->{'ip'}=~m/\S+/); 
 }
+
 if(! defined $opt->{'ip'}){
     print "please provide an ip address or put it in DNS.\n";
+    exit 1;
+}
+
+if(! defined $opt->{'next-server'}){
+    print "please provide an install server IP or hostname.\n";
     exit 1;
 }
 
@@ -361,7 +370,8 @@ if($opt->{'service'} eq 'vcenter'){
                              'nic_network'    => $nic_network,
                              'nic_poweron'    => 0,
                              'resource_pool'  => $opt->{'resourcepool'},
-                             'dhcplinks'      => "http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi",
+                             'next-server'    => $opt->{'next-server'},
+                             'dhcplinks'      => "http://$opt->{'next-server'}/cgi-bin/dhcplinks.cgi",
                            },
                  'task' => 'redeploy', # what we're asking it use the clipboard for
              };
