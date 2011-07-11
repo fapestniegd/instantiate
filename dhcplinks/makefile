@@ -1,6 +1,9 @@
 all: install test
 
-install: install_cgi install_pl install_watcher
+install: install_cgi install_pl install_watcher install templates
+
+install_templates: 
+	scp tftpboot/pxelinux.menus/templates/*.tpl root@newton:/opt/local/tftpboot/pxelinux.menus/templates/
 
 install_cgi: dhcplinks.cgi
 	scp -p dhcplinks.cgi root@newton:/var/www/cgi-bin/dhcplinks.cgi
