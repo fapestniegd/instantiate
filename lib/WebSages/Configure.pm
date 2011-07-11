@@ -113,7 +113,7 @@ sub ldap_dhcp_install{
                                'dhcpStatements'=> [
                                                     "filename \"$filename\"",
                                                     "fixed-address $cb->{'ipaddress'}",
-                                                    "next-server 192.168.1.217",
+                                                    "next-server $cb->{'next-server'}",
                                                     "use-host-decl-names on",
                                                   ],
                             );
@@ -136,7 +136,7 @@ sub ldap_dhcp_install{
                                           'dhcpStatements'=> [
                                                                "filename \"$filename\"",
                                                                "fixed-address $cb->{'ipaddress'}",
-                                                               "next-server 192.168.1.217",
+                                                               "next-server $cb->{'next-server'}",
                                                                "use-host-decl-names on",
                                                              ],
                                           'dhcpOption'    => [
