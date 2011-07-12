@@ -160,6 +160,8 @@ use Net::TFTP;
     $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
     my $mode = 'unknown';
     while ($mode ne "installing"){
+        my @file;
+        print STDERR join("\n",@file);
         # hit dhcplinks to create the tftpboot files
         my $ua = LWP::UserAgent->new;
         $ua->agent("__PACKAGE__/0.1 ");
@@ -170,20 +172,17 @@ use Net::TFTP;
         }else{
             print STDERR $res->status_line, "\n";
         }
-    
         print STDERR "Get: $cb->{'next-server'} : pxelinux.cfg/$tftpfile\n";
         my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
         $tftp->ascii;
         my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
-        my @file;
         while(my $line = <$fh>){ chomp($line); push(@file,$line); }
-        if(grep(/# INSTALL MENU #/,@file)){
+        if( grep(/# INSTALL MENU #/,@file) ){
             $mode = "installing";
-        }elsif(grep(/# MAIN MENU #/,@file)){
+        }elsif( grep(/# MAIN MENU #/,@file) ){
             $mode="mainmenu";
         }else{
             $mode="unknown";
-            print STDERR join("\n",@file);
         }
         print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'installing'\n";
         sleep 10;
