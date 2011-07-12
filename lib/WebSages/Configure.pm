@@ -171,13 +171,14 @@ use Net::TFTP;
             print STDERR $res->status_line, "\n";
         }
     
-        my $tftp = Net::TFTP->new("oppenheimer.eftdomain.net", BlockSize => 1024);
+        print STDERR "Get: $cb->{'next-server'} : pxelinux.cfg/$tftpfile\n";
+        my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
         $tftp->ascii;
         my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
         my @file;
         while(my $line = <$fh>){ chomp($line); push(@file,$line); }
         if(grep(/# INSTALL MENU #/,@file)){
-            $mode="installing";
+            $mode = "installing";
         }elsif(grep(/# MAIN MENU #/,@file)){
             $mode="mainmenu";
         }else{
@@ -208,7 +209,8 @@ use Net::TFTP;
             print STDERR $res->status_line, "\n";
         }
 
-        my $tftp = Net::TFTP->new("oppenheimer.eftdomain.net", BlockSize => 1024);
+        print STDERR "Get: $cb->{'next-server'} : pxelinux.cfg/$tftpfile\n";
+        my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
         $tftp->ascii;
         my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
         my @file;
