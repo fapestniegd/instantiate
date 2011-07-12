@@ -183,6 +183,7 @@ use Net::TFTP;
             $mode="mainmenu";
         }else{
             $mode="unknown";
+            print STDERR join("\n",@file);
         }
         print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'installing'\n";
         sleep 10;
