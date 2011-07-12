@@ -156,7 +156,7 @@ use LWP::UserAgent;
 use Net::TFTP;
     my $self = shift;
     my $cb = shift if @_;
-    my $tftpfile=$cb->{'macaddrs'};
+    my $tftpfile=$cb->{'macaddrs'}->[0];
     $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
     my $mode = 'unknown';
     while ($mode ne "installing"){
@@ -194,7 +194,7 @@ use LWP::UserAgent;
 use Net::TFTP;
     my $self = shift;
     my $cb = shift if @_;
-    my $tftpfile=$cb->{'macaddrs'};
+    my $tftpfile=$cb->{'macaddrs'}->[0];
     $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
     my $mode = 'unknown';
     while ($mode ne "mainmenu"){
