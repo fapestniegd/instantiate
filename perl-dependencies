@@ -356,6 +356,7 @@ try PETDANCE/WWW-Mechanize-1.66.tar.gz # (1.68 fails )
 try MAKAMAKA/JSON-2.53.tar.gz
 try INGY/YAML-0.73.tar.gz
 try CHORNY/Net-Ping-External-0.13.zip
+try GBARR/Net-TFTP-0.19.tar.gz
 EOF
 
 ################################################################################

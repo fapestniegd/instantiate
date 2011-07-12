@@ -1,3 +1,4 @@
+# INSTALL MENU #
 menu title [% hostname %] Quick-install
 menu tabmsgrow 22
 menu cmdlinerow 22

@@ -1,3 +1,4 @@
+# INSTALL MENU #
 menu title [% fqdn %] Quick-install
 menu tabmsgrow 22
 menu cmdlinerow 22

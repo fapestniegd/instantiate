@@ -114,12 +114,12 @@ sub redeploy {
                                "sp:get_macaddrs",              # get the MAC address from the API
                                "wc:host_record_updates",       # update ou=Hosts with the new information
                                "wc:ldap_dhcp_install",         # updated the MAC address in LDAP, set do boot pxe
-                               "wc:dhcplinks",                 # call dhcplinks.cgi to generate tftpboot symlinks
+                               "wc:dhcplinks_install",         # call dhcplinks.cgi to generate tftpboot symlinks
                                "sp:startup",                   # power on the vm (it should PXE by default)
                                "wc:wait_for_up",               # while we install...
                                "wc:ldap_dhcp_local",           #   set the ou=DHCP to boot locally
-                               "wc:dhcplinks",                 #   and call dhcplinks.cgi again to point it to localboot 
-                               "wc:wait_for_reboot",             # kickstart will reboot the node
+                               "wc:dhcplinks_mainmenu",        #   and call dhcplinks.cgi again to point it to localboot 
+                               "wc:wait_for_reboot",           # kickstart will reboot the node
                                "wc:wait_for_ssh",              # wait until ssh is available 
 #                               "wc:post_config",               # log in and do any post configuration
 #                               "wc:inspect_config",            # poke around and make sure everything looks good

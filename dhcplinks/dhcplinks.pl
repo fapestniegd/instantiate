@@ -215,14 +215,32 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         my $symlink_exists;
         # link  01-00-00-00-00-00-00 -> hostname.eftdomain.net if not already
         print STDERR "$h->{'hardware'} has multiple entries in cn=DHCP\n" unless readlink($h->{'hardware'});
-        unlink($h->{'hardware'}) unless(readlink($h->{'hardware'}) eq  $h->{'id'});
-        symlink($h->{'id'},$h->{'hardware'}) unless( readlink($h->{'hardware'}) eq  $h->{'id'});
+        if(readlink($h->{'hardware'})){
+            unlink($h->{'hardware'}) unless(readlink($h->{'hardware'}) eq  $h->{'id'});
+        }
+        if(readlink($h->{'hardware'})){
+            symlink($h->{'id'},$h->{'hardware'}) unless( readlink($h->{'hardware'}) eq  $h->{'id'});
+        }else{
+            symlink($h->{'id'},$h->{'hardware'});
+        }
         # link  hostname.eftdomain.net -> 192.168.n.m if not already
-        unlink($h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
-        symlink($h->{'fixed-address'},$h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
+        if(readlink($h->{'id'})){
+            unlink($h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
+        }
+        if(readlink($h->{'id'})){
+            symlink($h->{'fixed-address'},$h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
+        }else{
+            symlink($h->{'fixed-address'},$h->{'id'});
+        }
         # link  192.168.n.m -> C0A8NNMM if not already
-        unlink($h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
-        symlink($hexval,$h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
+        if(readlink($h->{'fixed-address'})){
+            unlink($h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
+        }
+        if(readlink($h->{'fixed-address'})){
+            symlink($hexval,$h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
+        }else{
+            symlink($hexval,$h->{'fixed-address'});
+        }
 
         # Template out our OS PXE menu
         if($h->{'filename'} eq '"pxelinux.install"'){
@@ -240,19 +258,33 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
                 # link C0A8NNMM -> <installer>
                 unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
-                symlink("../pxelinux.menus/install_$h->{'id'}",$hexval)
-                  unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
-
+                if(readlink($hexval)){
+                    symlink("../pxelinux.menus/install_$h->{'id'}",$hexval)
+                      unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
+                }else{
+                    symlink("../pxelinux.menus/install_$h->{'id'}",$hexval);
+                }
             }else{
                 # link C0A8NNMM -> main_menu
                 print STDERR "$h->{'id'} is set to install but has no Operating System Defined.\n";
-                unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
-                symlink("../pxelinux.menus/main_menu",$hexval)
-                  unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
-
+                if(readlink($hexval)){
+                    unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
+                }
+                if(readlink($hexval)){
+                    symlink("../pxelinux.menus/main_menu",$hexval)
+                      unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
+                }else{
+                    symlink("../pxelinux.menus/main_menu",$hexval)
+                }
             }
         }else{
-           $symlink_exists = eval { symlink("../pxelinux.menus/main_menu",$hexval); 1};
+            unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
+            if(readlink($hexval)){
+                symlink("../pxelinux.menus/main_menu",$hexval)
+                  unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
+            }else{
+                symlink("../pxelinux.menus/main_menu",$hexval);
+            }
         }
         $hexval='';
     }

@@ -1,3 +1,4 @@
+# INSTALL MENU #
 SERIAL 0 19200 0
 prompt 0
 noescape 1

@@ -151,25 +151,80 @@ sub ldap_dhcp_install{
     return $self;
 }
 
-sub dhcplinks{
+sub dhcplinks_install{
 use LWP::UserAgent;
+use Net::TFTP;
     my $self = shift;
     my $cb = shift if @_;
-    my $ua = LWP::UserAgent->new;
-    $ua->agent("__PACKAGE__/0.1 ");
-
-    # Create a request
-    my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
-
-    # Pass request to the user agent and get a response back
-    my $res = $ua->request($req);
-    # Check the outcome of the response
-    if ($res->is_success) {
-        print STDERR $res->content;
-    }else{
-        print STDERR $res->status_line, "\n";
+    my $tftpfile=$cb->{'macaddrs'};
+    $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
+    my $mode = 'unknown';
+    while ($mode ne "installing"){
+        # hit dhcplinks to create the tftpboot files
+        my $ua = LWP::UserAgent->new;
+        $ua->agent("__PACKAGE__/0.1 ");
+        my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
+        my $res = $ua->request($req);
+        if ($res->is_success) {
+            print STDERR $res->content;
+        }else{
+            print STDERR $res->status_line, "\n";
+        }
+    
+        my $tftp = Net::TFTP->new("oppenheimer.eftdomain.net", BlockSize => 1024);
+        $tftp->ascii;
+        my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
+        my @file;
+        while(my $line = <$fh>){ chomp($line); push(@file,$line); }
+        if(grep(/# INSTALL MENU #/,@file)){
+            $mode="installing";
+        }elsif(grep(/# MAIN MENU #/,@file)){
+            $mode="mainmenu";
+        }else{
+            $mode="unknown";
+        }
+        print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'installing'\n";
+        sleep 10;
     }
 }
+
+sub dhcplinks_mainmenu{
+use LWP::UserAgent;
+use Net::TFTP;
+    my $self = shift;
+    my $cb = shift if @_;
+    my $tftpfile=$cb->{'macaddrs'};
+    $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
+    my $mode = 'unknown';
+    while ($mode ne "mainmenu"){
+        # hit dhcplinks to create the tftpboot files
+        my $ua = LWP::UserAgent->new;
+        $ua->agent("__PACKAGE__/0.1 ");
+        my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
+        my $res = $ua->request($req);
+        if ($res->is_success) {
+            print STDERR $res->content;
+        }else{
+            print STDERR $res->status_line, "\n";
+        }
+
+        my $tftp = Net::TFTP->new("oppenheimer.eftdomain.net", BlockSize => 1024);
+        $tftp->ascii;
+        my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
+        my @file;
+        while(my $line = <$fh>){ chomp($line); push(@file,$line); }
+        if(grep(/# INSTALL MENU #/,@file)){
+            $mode="installing";
+        }elsif(grep(/# MAIN MENU #/,@file)){
+            $mode="mainmenu";
+        }else{
+            $mode="unknown";
+        }
+        print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'mainmenu'\n";
+        sleep 10;
+    }
+}
+
 
 ################################################################################
 # Functions below this should be standalone (not take the $clipboard as an arg)
