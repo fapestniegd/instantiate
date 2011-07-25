@@ -108,6 +108,8 @@ sub ldap_dhcp_install{
         }else{
             $entry = shift @{ $entries };
             #modify the entry with our new mac 
+            my $router = $cb->{'ipaddress'};
+            $router=~s/\.[^\.]+$/.1/; # this is probably a bad assumption
             $entry->replace ( 
                                'cn'            => "$cb->{'fqdn'}",
                                'dhcpHWAddress' => $new_macs,
