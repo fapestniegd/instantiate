@@ -88,7 +88,7 @@ sub get_dn_entry{
     my $mesg;
     my @dn = split(/,/,$dn);
     my $filter = shift(@dn);
-    my $base = "ou=Hosts,".join(",",@dn);
+    my $base = "ou=Hosts,dc=".join(",",@dn);
     $self->connection() unless $self->{'ldap'};
     $mesg = $self->{'ldap'}->search('base' => $base, 'filter' => $filter, 'scope' => 'one');
     print STDERR "seearch $filter: ". $mesg->error."\n" if($mesg->code && $self->{'debug'});
@@ -103,12 +103,14 @@ sub sets_for{
     my $mesg;
     my $filter = "uniqueMember=$dn";
     my $base = $self->{'cfg'}->{'sets_ou'}.",".$self->{'cfg'}->{'base'};
+    $base =~s/, */,/g;
     $self->connection() unless $self->{'ldap'};
     $mesg = $self->{'ldap'}->search('base' => $base, 'filter' => $filter, 'scope' => 'sub');
     print STDERR "seearch $filter: ". $mesg->error."\n" if($mesg->code && $self->{'debug'});
     my $allsets = undef ;
     foreach my $entry ($mesg->entries) { 
         my $set = $entry->dn();
+        $set =~s/, */,/g;
         $set=~s/,$base$//;
         my @sets_tree=split(/,/,$set);
         my @newset;
@@ -125,6 +127,8 @@ sub sets_for{
 
 use Template;
 my $debug = 0;
+my @trace_hosts = @ARGV;
+print "Tracing ".join(", ",@trace_hosts)."\n" if($#trace_hosts>=0);
 my $cfg = {
             'debug'    => $debug,
             'domain'   => 'eftdomain.net',
@@ -163,9 +167,10 @@ foreach my $entry (@{ $entries }){
      my @fqdn = split(/\./,$host->{'id'});
      if($#fqdn >0){
          my $hostname = shift(@fqdn);
-         my $hostdn = "cn=".$hostname.",dc=".join(",dc=",@fqdn);
+         my $hostdn = "cn=".$hostname.",".join(",dc=",@fqdn);
          my $hostentry = $ldap->get_dn_entry($hostdn);
          # no need to look up the OS if we're not installing
+         print "filename: $host->{'filename'}\n" if(grep(/$host->{'id'}/,@trace_hosts));
          if($host->{'filename'}){ 
              # again, no need to look up the OS if we're not installing
              if($host->{'filename'} eq qq("pxelinux.install")){ 
@@ -173,7 +178,9 @@ foreach my $entry (@{ $entries }){
                      print STDERR "$hostdn does not exist in LDAP\n" if $debug;
                  }else{
                      my $sets = $ldap->sets_for($hostentry->dn());
+                     print "sets: ".Data::Dumper->Dump([$sets])."\n" if(grep(/$host->{'id'}/,@trace_hosts));
                      foreach my $set (@{ $sets }){
+                     print "set: $set\n" if(grep(/$host->{'id'}/,@trace_hosts));
                          my($category, $member)=split(/::/,$set);
                          if($category eq "Operating Systems"){
                              $host->{'os'} = $member;
@@ -254,6 +261,7 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                              'fqdn'       => $h->{'id'}, 
                              'domainname' => $cfg->{'domain'},
                              'next_server' => $h->{'next-server'},
+                             'ip'          => $h->{'fixed-address'},
                            };
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
                 # link C0A8NNMM -> <installer>

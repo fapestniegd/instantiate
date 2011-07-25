@@ -109,12 +109,18 @@ sub ldap_dhcp_install{
             $entry = shift @{ $entries };
             #modify the entry with our new mac 
             $entry->replace ( 
+                               'cn'            => "$cb->{'fqdn'}",
                                'dhcpHWAddress' => $new_macs,
                                'dhcpStatements'=> [
                                                     "filename \"$filename\"",
                                                     "fixed-address $cb->{'ipaddress'}",
                                                     "next-server $cb->{'next-server'}",
                                                     "use-host-decl-names on",
+                                                  ],
+                               'dhcpOption'    => [
+                                                    "option-233 = \"$cb->{'hostname'}\"",
+                                                    "routers $router",
+                                                    "subnet-mask 255.255.255.0"
                                                   ],
                             );
         }
@@ -126,25 +132,25 @@ sub ldap_dhcp_install{
          my $router = $cb->{'ipaddress'};
          $router=~s/\.[^\.]+$/.1/; # this is probably a bad assumption
          $entry->add( 
-                                         'cn'             => "$cb->{'fqdn'}",
-                                         'objectClass'    => [
-                                                               "top",
-                                                               "dhcpHost",
-                                                               "dhcpOptions",
-                                                             ],
-                                          'dhcpHWAddress' => $new_macs,
-                                          'dhcpStatements'=> [
-                                                               "filename \"$filename\"",
-                                                               "fixed-address $cb->{'ipaddress'}",
-                                                               "next-server $cb->{'next-server'}",
-                                                               "use-host-decl-names on",
-                                                             ],
-                                          'dhcpOption'    => [
-                                                               "option-233 = \"$cb->{'hostname'}\"",
-                                                               "routers $router",
-                                                               "subnet-mask 255.255.255.0"
-                                                             ]
-                                        );
+                      'cn'             => "$cb->{'fqdn'}",
+                      'objectClass'    => [
+                                            "top",
+                                            "dhcpHost",
+                                            "dhcpOptions",
+                                          ],
+                       'dhcpHWAddress' => $new_macs,
+                       'dhcpStatements'=> [
+                                            "filename \"$filename\"",
+                                            "fixed-address $cb->{'ipaddress'}",
+                                            "next-server $cb->{'next-server'}",
+                                            "use-host-decl-names on",
+                                          ],
+                       'dhcpOption'    => [
+                                            "option-233 = \"$cb->{'hostname'}\"",
+                                            "routers $router",
+                                            "subnet-mask 255.255.255.0"
+                                          ]
+                    );
     }
     # update the entry
     $self->ldap_entry_update( $entry );
@@ -178,14 +184,17 @@ use Net::TFTP;
         my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
         while(my $line = <$fh>){ chomp($line); push(@file,$line); }
         if( grep(/# INSTALL MENU #/,@file) ){
+            print STDERR "mode: installing\n";
             $mode = "installing";
         }elsif( grep(/# MAIN MENU #/,@file) ){
+            print STDERR "mode: mainmenu\n";
             $mode="mainmenu";
         }else{
+            print STDERR "mode: unknown\n";
             $mode="unknown";
         }
         print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'installing'\n";
-        sleep 10;
+        sleep 10 unless($mode eq "installing");
     }
 }
 
@@ -223,7 +232,7 @@ use Net::TFTP;
             $mode="unknown";
         }
         print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'mainmenu'\n";
-        sleep 10;
+        sleep 10 unless($mode eq "mainmenu");
     }
 }
 

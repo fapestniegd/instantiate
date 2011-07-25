@@ -102,12 +102,14 @@ sub sets_for{
     my $mesg;
     my $filter = "uniqueMember=$dn";
     my $base = $self->{'cfg'}->{'sets_ou'}.",".$self->{'cfg'}->{'base'};
+    $base=~s/, */,/g;
     $self->connection() unless $self->{'ldap'};
     $mesg = $self->{'ldap'}->search('base' => $base, 'filter' => $filter, 'scope' => 'sub');
     print STDERR "seearch $filter: ". $mesg->error."\n" if($mesg->code && $self->{'debug'});
     my $allsets = undef ;
     foreach my $entry ($mesg->entries) { 
         my $set = $entry->dn();
+        $set=~s/, */,/g;
         $set=~s/,$base$//;
         my @sets_tree=split(/,/,$set);
         my @newset;

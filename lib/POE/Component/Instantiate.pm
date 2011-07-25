@@ -121,6 +121,7 @@ sub redeploy {
                                "wc:dhcplinks_mainmenu",        #   and call dhcplinks.cgi again to point it to localboot 
                                "wc:wait_for_reboot",           # kickstart will reboot the node
                                "wc:wait_for_ssh",              # wait until ssh is available 
+                               #"wc:ship_secret",              # ssh in and create the /usr/local/sbin/secret file
 #                               "wc:post_config",               # log in and do any post configuration
 #                               "wc:inspect_config",            # poke around and make sure everything looks good
 #                               "wc:cleanup",                   # remove any temp files 
