@@ -125,6 +125,17 @@ sub sets_for{
 }
 1;
 
+# ensure link
+sub enslink{
+    my ( $target, $link ) = ( @_ );
+    if(readlink($link)){
+        unlink($link) unless(readlink($link) eq  $target);
+        symlink( $target, $link ) unless( readlink($link) eq $target);
+    }else{
+        symlink( $target, $link );
+    }
+}
+
 use Template;
 my $debug = 0;
 my @trace_hosts = @ARGV;
@@ -222,6 +233,7 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
         my $symlink_exists;
         # link  01-00-00-00-00-00-00 -> hostname.eftdomain.net if not already
         print STDERR "$h->{'hardware'} has multiple entries in cn=DHCP\n" unless readlink($h->{'hardware'});
+        # enslink( $h->{'id'}, $h->{'hardware'} );
         if(readlink($h->{'hardware'})){
             unlink($h->{'hardware'}) unless(readlink($h->{'hardware'}) eq  $h->{'id'});
         }
@@ -285,6 +297,8 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                     symlink("../pxelinux.menus/main_menu",$hexval)
                 }
             }
+        }elsif($h->{'filename'} eq '"thinstation.nbi.zpxe"'){
+            # thinstation code #
         }else{
             unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
             if(readlink($hexval)){

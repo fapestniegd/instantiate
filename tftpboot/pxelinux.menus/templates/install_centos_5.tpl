@@ -18,5 +18,5 @@ default pxelinux.kernels/com32/menu.c32
 
 label [% fqdn %]
        menu label Redeploy [% fqdn %] 
-       kernel pxelinux.kernels/centos5.5/vmlinuz 
-       append initrd=pxelinux.kernels/centos5.5/initrd.img ip=dhcp ks=http://newton.[% domainname %]/cgi-bin/kickstart.cgi text
+       kernel pxelinux.kernels/centos-latest/vmlinuz 
+       append initrd=pxelinux.kernels/centos-latest/initrd.img ip=dhcp ks=http://newton.[% domainname %]/cgi-bin/kickstart.cgi text
