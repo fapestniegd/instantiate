@@ -303,6 +303,15 @@ sub create_vm {
                                            snapshotDirectory => undef,
                                            suspendDirectory => undef,
                                            vmPathName => $ds_path);
+print STDERR Data::Dumper->Dump([{
+                                             name => $args->{'vmname'},
+                                             memoryMB => $args->{'memory'},
+                                             files => $files,
+                                             numCPUs => $args->{'num_cpus'},
+                                             guestId => $args->{'guestid'},
+                                             deviceChange => \@vm_devices);
+
+                         }];
    my $vm_config_spec = VirtualMachineConfigSpec->new(
                                              name => $args->{'vmname'},
                                              memoryMB => $args->{'memory'},
