@@ -364,7 +364,7 @@ if($opt->{'service'} eq 'vcenter'){
                              'ipaddress'      => $opt->{'ip'},
                              'vmhost'         => $opt->{'host'},
                              'datacenter'     => $opt->{'datacenter'},
-                             'guestId'        => $guestid,
+                             'guestid'        => $guestid,
                              'datastore'      => $datastore,
                              'disksize'       => $disksize,
                              'memory'         => $memory,
