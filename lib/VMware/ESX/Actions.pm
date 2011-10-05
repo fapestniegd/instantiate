@@ -247,6 +247,7 @@ sub destroy_vm{
 sub create_vm {
    my $self = shift;
    my $args = shift if @_;
+   print STDERR Data::Dumper->Dump([$args]);
    my @vm_devices;
    $self->load_env();
    my $host_view = Vim::find_entity_view(view_type => 'HostSystem',
@@ -303,7 +304,6 @@ sub create_vm {
                                            snapshotDirectory => undef,
                                            suspendDirectory => undef,
                                            vmPathName => $ds_path);
-print STDERR Data::Dumper->Dump([{ guestId => $args->{'guestid'} }]);
    my $vm_config_spec = VirtualMachineConfigSpec->new(
                                              name => $args->{'vmname'},
                                              memoryMB => $args->{'memory'},
