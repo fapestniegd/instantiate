@@ -76,7 +76,6 @@ sub destroy{
 sub deploy{
     my $self = shift;
     my $cb = shift if @_;
-    print STDERR Data::Dumper->Dump([ 'cb' => $cb]);
     $self->do('create_vm',$cb);
     return $self;
 }
@@ -248,7 +247,6 @@ sub destroy_vm{
 sub create_vm {
    my $self = shift;
    my $args = shift if @_;
-   print STDERR Data::Dumper->Dump([ 'args' => $args]);
    my @vm_devices;
    $self->load_env();
    my $host_view = Vim::find_entity_view(view_type => 'HostSystem',
