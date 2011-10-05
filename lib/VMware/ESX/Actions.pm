@@ -311,7 +311,7 @@ print STDERR Data::Dumper->Dump([{
                                              guestId => $args->{'guestid'},
                                              deviceChange => @vm_devices,
 
-                         }];
+                         }]);
    my $vm_config_spec = VirtualMachineConfigSpec->new(
                                              name => $args->{'vmname'},
                                              memoryMB => $args->{'memory'},
