@@ -309,7 +309,7 @@ print STDERR Data::Dumper->Dump([{
                                              files => $files,
                                              numCPUs => $args->{'num_cpus'},
                                              guestId => $args->{'guestid'},
-                                             deviceChange => \@vm_devices);
+                                             deviceChange => @vm_devices;
 
                          }];
    my $vm_config_spec = VirtualMachineConfigSpec->new(
