@@ -1,8 +1,9 @@
-mkvm:
+mkvm: 
+  - wc->ldap_dhcp_install errors with Invalid Credentials when provided with switches
+  - wc->ldap_dhcp_local errors with Invalid Credentials when provided with switches
+
   - did not roll back when disk space was not sufficient
   - did not get added to Operating Systems
-  - did not re-run dhcplinks while waiting for [installing]
-  - did not get tftp files until next server was changed to IP 192.168.1.217
   - did not set --ip in kickstart file, because it was not in windows DNS
-  - The CentOS installation tree does not seem to match installation media 5.5->
+    (it should add it)
 5.7 (recollections)
