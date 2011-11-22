@@ -151,7 +151,7 @@ sub ptr{
             return $rr->ptrdname;
         }
     } else {
-        warn "query failed: ", $res->errorstring, "\n";
+        warn "PTR query failed: [$ip]", $res->errorstring, "\n";
     }
     return undef;
 }
@@ -168,7 +168,7 @@ sub a{
             return $rr->address;
         }
     } else {
-        warn "query failed: ", $res->errorstring, "\n";
+        warn "A query failed: [$ip]", $res->errorstring, "\n";
     }
     return undef;
 }
@@ -245,6 +245,12 @@ my @fqdn = split('\.',$fqdn);
 my $hostname = shift(@fqdn);
 my $domain = join('.',@fqdn);
 my $ip = a($fqdn);
+my $subnet = "255.255.255.0";
+my $vmkip = a($hostname."-vmk.".$domain);
+print STDERR "-=[ $vmkip :: ".$hostname."-vmk.".$domain."]=-\n";
+my $vmknm = "255.255.255.0";
+my $vmkvlan="11";
+if($ip=~m/^192\.168\.2/){ $vmkvlan="201"; }
 my @gateway = split('\.',$ip);
 pop(@gateway); push(@gateway, '1');
 my $gateway =  join('.',@gateway);
@@ -252,13 +258,19 @@ my $tpl_file = "kickstart_".$form->{'sets'}->{'Operating Systems'}->[0].".tpl";
 $tpl_file=~tr/A-Z/a-z/;
 $tpl_file=~s/\s/_/g;
 
+
+
 my $template = Template->new({'INCLUDE_PATH' => "/opt/local/kickstart/templates"});
 my $vars = { 
              'ip'          => $ip,
+             'subnet'      => $subnet,
              'gateway'     => $gateway,
              'fqdn'        => $fqdn,
              'hostname'    => $hostname,
              'domainname'  => $domain,
+             'vmkip'       => $vmkip,
+             'vmknm'       => $vmknm,
+             'vmkvlan'     => $vmkvlan,
              'nameservers' => '192.168.1.54',
              'rootpw'      => '$1$/TWX24ae$82zOJF5hk.IiKw8PbMKoP0',
              'ldap_srvs'   => 'ldaps://maxwell.eftdomain.net:636 ldaps://faraday.eftdomain.net:636',

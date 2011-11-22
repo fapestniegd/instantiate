@@ -42,41 +42,42 @@ $0: create or re-deploy a host
 Usage: $0 [ options ]  
 
 ################################################################################
-Option Type   Short Option     || Long Option                 || env variable
+Option Type   Short Option      || Long Option                 || env variable
 -----------   ------------        ------------                   ------------
-Config:
-              -c  <cf_file>    ||--confir=<cf_file>
-              -P  <profile>    ||--profile=<profile>
-              -s  <service>    ||--service=<service>
-              -I  <server>     ||--install-server=<server>
+Config :
+              -c  <cf_file>     ||--confir=<cf_file>
+              -P  <profile>     ||--profile=<profile>
+              -s  <service>     ||--service=<service>
+              -I  <server>      ||--install-server=<server>
+              -a  <authkeyfile> ||--authorized_key_file=<file>
 Guest: 
-              -n  <name>       ||--name=<name> 
-              -i  <ip>         ||--ip=<ip> 
-              -o  <OS>         ||--os=<os> 
-              -t  <type>       ||--type=<type> 
+              -n  <name>        ||--name=<name> 
+              -i  <ip>          ||--ip=<ip> 
+              -o  <OS>          ||--os=<os> 
+              -t  <type>        ||--type=<type> 
 Windows AD
-              -d <domain>      ||--domain=<domain>
-              -p <password>    ||--password=<password>     || \$WINDOWS_PASSWORD
-              -U <username>    ||--username=<username>     || \$WINDOWS_USERNAME
+              -d <domain>       ||--domain=<domain>
+              -p <password>     ||--password=<password>     || \$WINDOWS_PASSWORD
+              -U <username>     ||--username=<username>     || \$WINDOWS_USERNAME
 LDAP:
-              -H  <uri>        ||--uri=<uri>
-              -b  <base_dn>    ||--basedn=<base_dn>           || \$LDAP_BASEDN
-              -D  <bind_dn>    ||--binddn=<bind_dn>           || \$LDAP_BINDDN
-              -w  <bind_pw>    ||--bindpw=<bind_dn>           || \$LDAP_BINDPW
+              -H  <uri>         ||--uri=<uri>
+              -b  <base_dn>     ||--basedn=<base_dn>           || \$LDAP_BASEDN
+              -D  <bind_dn>     ||--binddn=<bind_dn>           || \$LDAP_BINDDN
+              -w  <bind_pw>     ||--bindpw=<bind_dn>           || \$LDAP_BINDPW
 VMware:
-              -v  <vcenter_srv>||--vcneter=<vcenter_srv>
-              -dc <datacenter> ||--datacenter=<datacenter>
-              -C  <cluster>    ||--cluster=<cluster>
-              -r  <respool>    ||--resourcepool=<respool>
-                               ||--host=<esxhost>
-              -l  <LUN>        ||--lun=<LUN>
-              -N  <network>    ||--network=<network>
+              -v  <vcenter_srv> ||--vcneter=<vcenter_srv>
+              -dc <datacenter>  ||--datacenter=<datacenter>
+              -C  <cluster>     ||--cluster=<cluster>
+              -r  <respool>     ||--resourcepool=<respool>
+                                ||--host=<esxhost>
+              -l  <LUN>         ||--lun=<LUN>
+              -N  <network>     ||--network=<network>
 AWS:
-              -S  <secret>     ||--aws-secret=<secret>        || \$AWS_SECRET
-              -K  <secret_key> ||--aws-secret_key=<secret_key>|| \$AWS_SECRET_KEY
+              -S  <secret>      ||--aws-secret=<secret>        || \$AWS_SECRET
+              -K  <secret_key>  ||--aws-secret_key=<secret_key>|| \$AWS_SECRET_KEY
 Linode:
-                               ||--linode_username=<username>
-                               ||--linode_password=<password>
+                                ||--linode_username=<username>
+                                ||--linode_password=<password>
 
 EXAMPLES:
   export WINDOWS_PASSWORD='S3kr3tz'; mkvm -n redwood.lab.eftdomain.net
@@ -109,6 +110,7 @@ my $opt={};
 my $result = GetOptions(
   'help'              => \$opt->{'help'},
   'h'                 => \$opt->{'help'},
+  'authorized_key_file=s' => \$opt->{'authkeyfile'}, 'a=s'  => \$opt->{'authkeyfile'},
   'aws-secret=s'      => \$opt->{'aws_secret'},      'S=s'  => \$opt->{'aws_secret'},
   'aws-secret_key=s'  => \$opt->{'aws_secret_key'},  'K=s'  => \$opt->{'aws_secret_key'},
   'basedn=s'          => \$opt->{'basedn'},          'b=s'  => \$opt->{'basedn'},
@@ -119,7 +121,7 @@ my $result = GetOptions(
   'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
   'host=s'            => \$opt->{'host'},
   'ip=s'              => \$opt->{'ip'},              'i=s'  => \$opt->{'domain'},
-  'I=s'               => \$opt->{'next-server'},     'I=s'  => \$opt->{'next-server'},
+  'install_server=s'  => \$opt->{'next-server'},     'I=s'  => \$opt->{'next-server'},
   'lun=s'             => sub { push(@{$opt->{'lun'}}, $_[1]) }, # LUNs are multi-valued
   'linode_username=s' => \$opt->{'linode_username'},
   'linode_password=s' => \$opt->{'linode_password'},
@@ -308,11 +310,6 @@ if(! defined $opt->{'ip'}){
     exit 1;
 }
 
-if(! defined $opt->{'next-server'}){
-    print "please provide an install server IP or hostname.\n";
-    exit 1;
-}
-
 ################################################################################
 #  Redeploy the host
 ################################################################################
@@ -325,7 +322,13 @@ if(! defined $opt->{'next-server'}){
 # [ type, name, os ]
 ################################################################################
 if(!defined($opt->{'service'})){ $opt->{'service'} = 'vcenter'; }
+my $data = {};
 if($opt->{'service'} eq 'vcenter'){
+    # we need a kickstart/tftpboot server for vmware
+    if(! defined $opt->{'next-server'}){
+        print "please provide an install server IP or hostname.\n";
+        exit 1;
+    }
    ############################################################################
    # convert our format to what the viperl api expects
    ############################################################################
@@ -339,7 +342,7 @@ if($opt->{'service'} eq 'vcenter'){
    ############################################################################
     # This is our clipboard, it has the job wer're going to pass around
     ############################################################################
-    my $data = { 
+    $data = { 
                  'sp'   => { # servic provider we call actions against
                              'actions'    => 'VMware::ESX',
                              'connection' => { # virtualcenter uses windows creds
@@ -377,6 +380,40 @@ if($opt->{'service'} eq 'vcenter'){
                            },
                  'task' => 'redeploy', # what we're asking it use the clipboard for
              };
+}elsif($opt->{'service'} eq 'linode'){
+    my $vmname = $opt->{'name'}; 
+       $vmname =~s/\..*//;
+    $data = {
+                 'sp'   => { # servic provider we call actions against
+                             'actions'    => 'Linode',
+                             'connection' => { # virtualcenter uses windows creds
+                                               'username' => $opt->{'linode-username'},
+                                               'password' => $opt->{'linode-password'},
+                                             },
+                           },
+                'cb'   => { # clipboard passed from task to task
+                             'fqdn'           => $opt->{'name'},
+                             'hostname'       => $opt->{'name'},
+                             'vmname'         => $vmname,
+                             'ipaddress'      => $opt->{'ip'},
+                             'datacenter'     => $opt->{'datacenter'},
+                             'sshpubkeyfile'  => $opt->{'authkeyfile'},
+                           },
+                 'task' => 'redeploy', # what we're asking it use the clipboard for
+               };
+
+}
+################################################################################
+# for aws we'll need
+# [ aws_secret, aws_secret_key ]
+# [ datacenter, type, name ]
+################################################################################
+
+################################################################################
+# for linode we'll need
+# [ linode_username, linode_password ]
+# [ datacenter, type, lun(s), name, os ]
+################################################################################
     ############################################################################
     #
     ############################################################################
@@ -411,15 +448,3 @@ if($opt->{'service'} eq 'vcenter'){
     #
     #############################################################################
 
-}
-################################################################################
-# for aws we'll need
-# [ aws_secret, aws_secret_key ]
-# [ datacenter, type, name ]
-################################################################################
-
-################################################################################
-# for linode we'll need
-# [ linode_username, linode_password ]
-# [ datacenter, type, lun(s), name, os ]
-################################################################################

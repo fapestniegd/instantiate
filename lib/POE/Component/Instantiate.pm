@@ -140,8 +140,8 @@ sub redeploy {
                                "sp:deploy",                    # deploy new node
                                "sp:get_pub_ip",                # query the public IP and add it to the clipboard
                                "wc:wait_for_ssh",              # wait until ssh is available 
-                               "wc:get_remote_hostkey",         # get the new ssh fingerprints
-                               "wc:update_dns",                # update dns sshfp / a records
+                               "wc:get_remote_hostkey",        # get the new ssh fingerprints
+# BORKEDED no get_ldap_entry   "wc:update_dns",                # update dns sshfp / a records 
                                "wc:mount_opt",                 # log in and mount /opt, set /etc/fstab
                                "sp:set_kernel_pv_grub",        # set the kernel to boot pv_grub on the next boot
                                "wc:make_remote_dsa_keypair",   # generate a ssh-keypair for root
@@ -150,12 +150,11 @@ sub redeploy {
                                "wc:save_ldap_secret",          # save the ldap secret if provided
                                "wc:gitosis_deployment_key",    # update the root's key in gitosis (for app deployments)
                                "wc:prime_host",                # download prime and run it (installs JeCM and puppet)
-                               "wc:tail_prime_init_log",       # tail the prime init log until it exits
-                               #"wc:prime-log",                # download prime and run it (installs JeCM and puppet)
-                               "wc:wait_for_reboot",           # puppet will install a new kernel and reboot
-                               #"wc:wait_for_ssh",              # wait until ssh is available 
-                               #"wc:inspect_puppet_logs",       # follow the puppet logs until they error out or complete
-                               "wc:enable_monitoring",         # re-enable monitoring for the host
+#                               "wc:tail_prime_init_log",      # tail the prime init log until it exits
+#                               "wc:wait_for_reboot",          # puppet will install a new kernel and reboot
+#                               "wc:wait_for_ssh",            # wait until ssh is available 
+                               #"wc:inspect_puppet_logs",     # follow the puppet logs until they error out or complete
+#                               "wc:enable_monitoring",        # re-enable monitoring for the host
                              ];
     }
     if($type eq 'EC2'){

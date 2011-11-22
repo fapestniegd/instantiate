@@ -16,7 +16,11 @@ sub new{
     my $cnstr = shift if @_;
     $self->{'username'} = $cnstr->{'username'} if $cnstr->{'username'};
     $self->{'password'} = $cnstr->{'password'} if $cnstr->{'password'};
-    $self->{'api_key'} = $cnstr->{'api_key'} if $cnstr->{'api_key'};
+    if($cnstr->{'api_key'}){
+        $self->{'api_key'} = $cnstr->{'api_key'} if $cnstr->{'api_key'};
+    }else{
+        $self->{'api_key'} = $self->api_key();
+    }
     return $self;
 }
 
@@ -184,7 +188,7 @@ sub id{
 sub shutdown{
     my $self = shift;
     my $cb = shift if @_;
-    $self->_shutdown($cb->{'hostname'});
+    $self->_shutdown($cb->{'vmname'});
 }
 
 sub _shutdown{
@@ -201,7 +205,7 @@ sub _shutdown{
 sub boot{ 
     my $self = shift;
     my $cb = shift if @_;
-    $self->_boot($cb->{'hostname'});
+    $self->_boot($cb->{'vmname'});
 }
 
 sub _boot{
@@ -240,8 +244,8 @@ sub first_config_id{
 sub destroy{
     my $self = shift;
     my $cb = shift if @_;
-    $self->delete_configs($cb->{'hostname'});
-    $self->delete_all_disks($cb->{'hostname'});
+    $self->delete_configs($cb->{'vmname'});
+    $self->delete_all_disks($cb->{'vmname'});
     return $self;
 }
 
@@ -330,7 +334,7 @@ sub disk_id{
 sub set_kernel_pv_grub{
     my $self = shift;
     my $cb = shift if @_;
-    $self->pv_grub($cb->{'hostname'});
+    $self->pv_grub($cb->{'vmname'});
     return $self;
 }
 
@@ -353,7 +357,7 @@ sub deploy{
     my $cb = shift if @_;
     $self->{'root_password'} = $cb->{'password'} if $cb->{'password'};
     $self->{'ssh_pubkey'} = $cb->{'ssh_pubkey'} if $cb->{'ssh_pubkey'};
-    $self->deploy_instance($cb->{'hostname'}, $cb->{'guestid'});
+    $self->deploy_instance($cb->{'vmname'}, $cb->{'guestid'});
 }
 
 sub deploy_instance{
@@ -483,8 +487,8 @@ sub ssh_pubkey{
 sub get_pub_ip{
     my $self=shift;
     my $cb = shift if @_;
-    $cb->{'ipaddress'} = $self->get_remote_pub_ip($cb->{'hostname'});
-    print YAML::Dump($cb);
+    $cb->{'ipaddress'} = $self->get_remote_pub_ip($cb->{'vmname'});
+    print STDERR Data::Dumper->Dump([$cb]);
 }
 
 sub get_remote_pub_ip{
