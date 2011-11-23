@@ -367,7 +367,7 @@ sub rexec{
     #eval { 
     #       local $SIG{__WARN__} = sub {}; 
     #       local *STDERR;
-           print STDERR qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} "$remote_command\n");
+           print STDERR qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} "$remote_command"\n);
            system qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} "$remote_command");
            print SDTERR "$!\n$?\n";
     #     };
@@ -421,17 +421,16 @@ sub restore_known_hosts{
 sub get_remote_hostkey{
     my $self = shift;
     my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     # wait for ssh to become available and get it's ssh-key so it won't ask
-    system qq(ssh-keyscan $self->{'ipaddress'} > $self->{'known_hosts'});
+    system qq(ssh-keyscan $self->{'ipaddress'} > $self->{'known_hosts'} 2>/dev/null);
     while( -z "$self->{'known_hosts'}" ){
         print STDERR "ssh isn't up yet, sleeping 5...\n";
         sleep 5;
         system qq(ssh-keyscan $self->{'ipaddress'} > $self->{'known_hosts'});
     }
-    print STDERR "-=[$self->{'ipaddress'}]=-\n";
     if( -f  "/usr/bin/sshfp"){
-        open(SSHFP,"/usr/bin/sshfp $self->{'ipaddress'}|");
+        open(SSHFP,"/usr/bin/sshfp $self->{'ipaddress'} 2>/dev/null|");
         while(my $sshfprecord=<SSHFP>){
             chomp($sshfprecord);
             # remove the cruft
@@ -450,7 +449,7 @@ sub get_remote_hostkey{
 sub mount_opt{
     my $self = shift;
     my $cb = shift;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     # mount the opt disk
     $self->rexec("/bin/grep -q /dev/xvdc /etc/fstab||/bin/echo '/dev/xvdc /opt ext3 noatime,errors=remount-ro 0 1'>>/etc/fstab");
     $self->rexec("/bin/grep -q ' /opt ' /etc/mtab || /bin/mount -a");
@@ -460,7 +459,7 @@ sub mount_opt{
 sub prime_host{
     my $self = shift;
     my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     $self->{'fqdn'} = $cb->{'fqdn'};
     $self->{'ldap_secret'} = $cb->{'password'};
     # fetch prime and fire it off
@@ -484,7 +483,7 @@ sub prime_host{
 sub make_remote_dsa_keypair{
     my $self = shift;
     my $cb = shift;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     print STDERR "Making remote dsa keypair\n";
     # regenerate a dsa public key (if there isn't one?)
     $self->rexec("if [ ! -f /root/.ssh/id_dsa.pub ];then /usr/bin/ssh-keygen -t dsa -N '' -C \"root\@\$(hostname -f)\" -f /root/.ssh/id_dsa>/dev/null 2>&1;fi");
@@ -495,7 +494,7 @@ sub make_remote_dsa_keypair{
 sub save_ldap_secret{
     my $self = shift;
     my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     $self->{'secret'} = $cb->{'password'};
     # save the deployment ldap_secret to the host's /etc/ldap/ldap.conf
     $self->rexec("if [ ! -d /etc/ldap ]; then /bin/mkdir -p /etc/ldap; fi");
@@ -506,7 +505,7 @@ sub save_ldap_secret{
 sub get_ldap_secret{
     my $self = shift;
     my $cb = shift;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     # save the deployment ldap_secret to the host's /etc/ldap/ldap.conf
     open(CMD,"ssh -o UserKnownHostsFile=$self->{'known_hosts'} -o StrictHostKeyChecking=no root\@$self->{'ipaddress'} \'cat /etc/ldap/ldap.secret\'|");
     my $secret=<CMD>;
@@ -518,7 +517,7 @@ sub get_ldap_secret{
 sub get_remote_dsa_pubkey{
     my $self = shift;
     my $cb = shift if @_;
-    $self->{'ipaddress'} = $cb->{'ipaddress'}->[0];
+    $self->{'ipaddress'} = $cb->{'ipaddress'};
     my ($ssh_key, $newkey);
     open PUBKEY, qq(ssh -o UserKnownHostsFile=$self->{'known_hosts'} root\@$self->{'ipaddress'} 'if [ -f /root/.ssh/id_dsa.pub ]; then /bin/cat /root/.ssh/id_dsa.pub ;fi'|)
         ||warn "could not open ssh for read";
@@ -868,9 +867,8 @@ sub update_dns{
     $self->update_ldap_entry({ 'entry' => $dns_entry });
 }
 
-
 # use the ipaddress here or it will cache in DNS
-sub wait_for_ssh{
+sub hostname_via_ssh{
     my $self=shift;
     my $cb = shift if @_;
     my $ip;
@@ -886,8 +884,31 @@ sub wait_for_ssh{
         close(SSH);
 
         print STDERR "hostname: $hostname\n";
-        $got_hostname = 1 if($hostname ne ""); 
+        $got_hostname = 1 if($hostname ne "");
         sleep 60 unless $got_hostname; # this should be tuneable
+        $count++;
+    }
+    return $self;
+}
+
+# use the ipaddress here or it will cache in DNS
+sub wait_for_ssh{
+    my $self=shift;
+    my $cb = shift if @_;
+    my $ip;
+    (ref($cb->{'ipaddress'}) eq 'ARRAY')?$ip=$cb->{'ipaddress'}->[0]:$ip=$cb->{'ipaddress'};
+    my $hostname;
+    my $count=0;
+    my $got_sshfp=0;
+    while(($got_sshfp == 0)&&($count <= 60)){ # (60 tries * 60 seconds appart ) => 1 hour
+        print STDERR "Waiting for ssh login: " if($count > 0);
+        # use keyauth or fail.
+        open (SSH,"sshfp $ip 2>/dev/null|");
+        while(chomp(my $sshfp=<SSH>)){
+            print STDERR "hostname: $sshfp\n";
+            $got_sshfp++;
+        }
+        close(SSH);
         $count++;
     }
     return $self;
