@@ -293,7 +293,7 @@ sub on_child_close {
 sub on_child_signal {
     my ($self, $kernel, $heap, $sender, $wheel_id, $pid, $status) = @_[OBJECT, KERNEL, HEAP, SENDER, ARG0 .. $#_];
     print "pid $pid exited with status $status.\n";
-    exit if($status ne 0);
+    exit if($status != 0);
     $kernel->yield('next_item') if($heap->{'actions'}->[0]);
     my $child = delete $heap->{children_by_pid}{$status};
     # May have been reaped by on_child_close().

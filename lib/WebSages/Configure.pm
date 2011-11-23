@@ -159,28 +159,44 @@ sub ldap_dhcp_install{
     return $self;
 }
 
-sub dhcplinks_install{
+sub dhcplinks{
 use LWP::UserAgent;
 use Net::TFTP;
     my $self = shift;
     my $cb = shift if @_;
+    my $lookfor = shift if @_;
+    unless(defined($cb->{'next-server'})){
+        print STDERR "next server [$cb->{'next-server'}] not defined. Cannot continue...\n";
+        exit 1;
+    }
+    unless(defined($cb->{'dhcplinks'})){
+        print STDERR "dhcplinks address [$cb->{'dhcplinks'}] not defined. Cannot continue...\n";
+        exit 1;
+    }
     my $tftpfile=$cb->{'macaddrs'}->[0];
     $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
     my $mode = 'unknown';
     while ($mode ne "installing"){
         my @file;
         print STDERR join("\n",@file);
+
         # hit dhcplinks to create the tftpboot files
         my $ua = LWP::UserAgent->new;
+        $ua->timeout(10);
+        $ua->env_proxy;
         $ua->agent("__PACKAGE__/0.1 ");
+        print STDERR "Fetching: $cb->{'dhcplinks'}\n";
         my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
+        $req->header('Pragma'=>'no-cache');
         my $res = $ua->request($req);
+         
         if ($res->is_success) {
             print STDERR $res->content;
         }else{
             print STDERR $res->status_line, "\n";
         }
-        print STDERR "Get: $cb->{'next-server'} : pxelinux.cfg/$tftpfile\n";
+
+        print STDERR "Get: [ $cb->{'next-server'}:pxelinux.cfg/$tftpfile ]\n";
         my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
         $tftp->ascii;
         my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
@@ -195,47 +211,22 @@ use Net::TFTP;
             print STDERR "mode: unknown\n";
             $mode="unknown";
         }
-        print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'installing'\n";
+        print STDERR "tftp boot file mode: [ $mode ]. Waiting for '$lookfor'\n";
         sleep 10 unless($mode eq "installing");
     }
+    return 0;
+}
+
+sub dhcplinks_install{
+    my $self = shift;
+    my $cb = shift if @_;
+    $self->dhcplinks($cb,'installing');
 }
 
 sub dhcplinks_mainmenu{
-use LWP::UserAgent;
-use Net::TFTP;
     my $self = shift;
     my $cb = shift if @_;
-    my $tftpfile=$cb->{'macaddrs'}->[0];
-    $tftpfile=~s/:/-/g; $tftpfile="01-$tftpfile";
-    my $mode = 'unknown';
-    while ($mode ne "mainmenu"){
-        # hit dhcplinks to create the tftpboot files
-        my $ua = LWP::UserAgent->new;
-        $ua->agent("__PACKAGE__/0.1 ");
-        my $req = HTTP::Request->new(GET => $cb->{'dhcplinks'});
-        my $res = $ua->request($req);
-        if ($res->is_success) {
-            print STDERR $res->content;
-        }else{
-            print STDERR $res->status_line, "\n";
-        }
-
-        print STDERR "Get: $cb->{'next-server'} : pxelinux.cfg/$tftpfile\n";
-        my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
-        $tftp->ascii;
-        my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
-        my @file;
-        while(my $line = <$fh>){ chomp($line); push(@file,$line); }
-        if(grep(/# INSTALL MENU #/,@file)){
-            $mode="installing";
-        }elsif(grep(/# MAIN MENU #/,@file)){
-            $mode="mainmenu";
-        }else{
-            $mode="unknown";
-        }
-        print STDERR "tftp boot file mode: [ $mode ]. Waiting for 'mainmenu'\n";
-        sleep 10 unless($mode eq "mainmenu");
-    }
+    $self->dhcplinks($cb,'mainmenu');
 }
 
 
