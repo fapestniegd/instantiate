@@ -3,7 +3,7 @@ mkvm:
   - wc->ldap_dhcp_local errors with Invalid Credentials when provided with switches
 
   - did not roll back when disk space was not sufficient
-  - did not get added to Operating Systems
-  - did not set --ip in kickstart file, because it was not in windows DNS
-    (it should add it)
+  - did not get added to Operating Systems ***
+  - did not set --ip in kickstart file, because it was not in windows DNS (it should add it) ***
+
 5.7 (recollections)
