@@ -88,7 +88,7 @@ sub get_dn_entry{
     my $mesg;
     my @dn = split(/,/,$dn);
     my $filter = shift(@dn);
-    my $base = "ou=Hosts,dc=".join(",",@dn);
+    my $base = join(",",@dn);
     $self->connection() unless $self->{'ldap'};
     $mesg = $self->{'ldap'}->search('base' => $base, 'filter' => $filter, 'scope' => 'one');
     print STDERR "seearch $filter: ". $mesg->error."\n" if($mesg->code && $self->{'debug'});
@@ -125,17 +125,9 @@ sub sets_for{
 }
 1;
 
-# ensure link
-sub enslink{
-    my ( $target, $link ) = ( @_ );
-    if(readlink($link)){
-        unlink($link) unless(readlink($link) eq  $target);
-        symlink( $target, $link ) unless( readlink($link) eq $target);
-    }else{
-        symlink( $target, $link );
-    }
-}
-
+################################################################################
+# 
+################################################################################
 use Template;
 my $debug = 0;
 my @trace_hosts = @ARGV;
@@ -148,15 +140,27 @@ my $cfg = {
           };
 
 ################################################################################
+#  subroutines
+################################################################################
+sub ln {
+    my ($link, $target) = (@_);
+    if(readlink($link)){
+        unlink($link) unless(readlink($link) eq $target);
+      }else{
+        symlink($target,$link);
+   }
+}
+
+################################################################################
 # First we query our Configuration Management meta-data repository (LDAP)
 ################################################################################
 my $ldap = Net::LDAP::CMDB->new($cfg);
 my $entries = $ldap->search("(objectClass=dhcpHost)");
 
 # assemble the global DHCP config.
-my $gcfg = {};
+my $hosts = [];
 foreach my $entry (@{ $entries }){ 
-    my $host={};
+    my $host = {};
     if($entry->get_value( 'cn' )){
         $host->{'id'} =  $entry->get_value( 'cn' );
     }
@@ -170,100 +174,76 @@ foreach my $entry (@{ $entries }){
             }
         }
     }
-    ############################################################################
-    # Now we look up the individual host's record to get it's os if it's file is
-    # pxelinux.install, so we can template out their installer, otherwise (if 
-    # the file is pxelinux.0) they just get symlinked to main_menu
-    ############################################################################
-     my @fqdn = split(/\./,$host->{'id'});
-     if($#fqdn >0){
-         my $hostname = shift(@fqdn);
-         my $hostdn = "cn=".$hostname.",".join(",dc=",@fqdn);
-         my $hostentry = $ldap->get_dn_entry($hostdn);
-         # no need to look up the OS if we're not installing
-         print "filename: $host->{'filename'}\n" if(grep(/$host->{'id'}/,@trace_hosts));
-         if($host->{'filename'}){ 
-             # again, no need to look up the OS if we're not installing
-             if($host->{'filename'} eq qq("pxelinux.install")){ 
-                 if(!defined($hostentry)){
-                     print STDERR "$hostdn does not exist in LDAP\n" if $debug;
-                 }else{
-                     my $sets = $ldap->sets_for($hostentry->dn());
-                     print "sets: ".Data::Dumper->Dump([$sets])."\n" if(grep(/$host->{'id'}/,@trace_hosts));
-                     foreach my $set (@{ $sets }){
-                     print "set: $set\n" if(grep(/$host->{'id'}/,@trace_hosts));
-                         my($category, $member)=split(/::/,$set);
-                         if($category eq "Operating Systems"){
-                             $host->{'os'} = $member;
-                         }
-                     }
-                 }
-             }
-         }
+    my @fqdn = split(/\./,$host->{'id'});
+    if($#fqdn >0){
+        my $hostname = shift(@fqdn);
+        my $hostdn = "cn=".$hostname.",ou=Hosts,dc=".join(",dc=",@fqdn);
+        my $hostentry = $ldap->get_dn_entry($hostdn);
+        print "filename: $host->{'filename'}\n" if(grep(/$host->{'id'}/,@trace_hosts));
+        if($host->{'filename'}){
+           if($host->{'filename'} eq qq("pxelinux.install")){ 
+               if(!defined($hostentry)){
+                   print STDERR "$hostdn does not exist in LDAP\n" if(grep(/$host->{'id'}/,@trace_hosts));
+               }else{
+                   my $sets = $ldap->sets_for($hostentry->dn());
+                   print "sets: ".Data::Dumper->Dump([$sets])."\n" if(grep(/$host->{'id'}/,@trace_hosts));
+                   foreach my $set (@{ $sets }){
+                   print "set: $set\n" if(grep(/$host->{'id'}/,@trace_hosts));
+                       my($category, $member)=split(/::/,$set);
+                       if($category eq "Operating Systems"){
+                           $host->{'os'} = $member;
+                       }
+                   }
+               }
+           }
+       }
     }else{ 
         print STDERR "cn=$host->{'id'},cn=DHCP,... should be a fully-qualified domain name.\n" if $debug;
     } 
-    push (@{ $gcfg->{'hosts'} },$host);
+    push(@{ $hosts },$host);
 }
+print STDERR Data::Dumper->Dump([$hosts]);
 
 ################################################################################
-# now we create the symlink chain that pxe expects to find.
+# link-chain
 ################################################################################
 chdir("$cfg->{'tftpboot'}/pxelinux.cfg");
-foreach my $h (@{ $gcfg->{'hosts'} }){
-    if($h->{'filename'}){
-        next unless $h->{'id'};
-        $h->{'hardware'}=~s/.*ethernet\s+//g;
-        my @macocts=split(/:/,$h->{'hardware'});
-        for(my $o=0;$o<=$#macocts;$o++){
-           if(length($macocts[$o]) == 1){ $macocts[$o]="0".$macocts[$o];} 
-        }
-        $h->{'hardware'}=join("-",@macocts);
-        $h->{'hardware'}="01-".$h->{'hardware'};
-        #$symlink_exists = eval { symlink("/usr/local",""); 1 }; 
-        $h->{'id'}=$h->{'id'}.".$cfg->{'domain'}" unless($h->{'id'}=~m/$cfg->{'domain'}/);
-        my $hexval;
-        my @octets=split(/\./,$h->{'fixed-address'});
-        foreach my $oct (@octets){
-            my $hex = sprintf("%02x", $oct);
-            $hexval.=$hex;
+foreach my $h (@{ $hosts }){
+   if($h->{'filename'}){
+       next unless $h->{'id'};
+       $h->{'hardware'}=~s/.*ethernet\s+//g;
+       my @macocts=split(/:/,$h->{'hardware'});
+       for(my $o=0;$o<=$#macocts;$o++){
+          if(length($macocts[$o]) == 1){ $macocts[$o]="0".$macocts[$o];} 
+       }
+       $h->{'hardware'}=join("-",@macocts);
+       $h->{'hardware'}="01-".$h->{'hardware'};
+       #$symlink_exists = eval { symlink("/usr/local",""); 1 }; 
+       $h->{'id'}=$h->{'id'}.".$cfg->{'domain'}" unless($h->{'id'}=~m/$cfg->{'domain'}/);
+       my $hexval;
+       my @octets=split(/\./,$h->{'fixed-address'});
+       foreach my $oct (@octets){
+           my $hex = sprintf("%02x", $oct);
+           $hexval.=$hex;
         }
         $hexval=~tr/a-z/A-Z/;
-
-        my $symlink_exists;
-        # link  01-00-00-00-00-00-00 -> hostname.eftdomain.net if not already
-        print STDERR "$h->{'hardware'} has multiple entries in cn=DHCP\n" unless readlink($h->{'hardware'});
-        # enslink( $h->{'id'}, $h->{'hardware'} );
-        if(readlink($h->{'hardware'})){
-            unlink($h->{'hardware'}) unless(readlink($h->{'hardware'}) eq  $h->{'id'});
-        }
-        if(readlink($h->{'hardware'})){
-            symlink($h->{'id'},$h->{'hardware'}) unless( readlink($h->{'hardware'}) eq  $h->{'id'});
-        }else{
-            symlink($h->{'id'},$h->{'hardware'});
-        }
+        ########################################################################
+        # now we create the symlink chain that pxe expects to find.
+        ########################################################################
+        # 01-00-50-56-95-00-58 -> zabel.lab.eftdomain.net
+        ln( $h->{'hardware'}, $h->{'id'} );
         # link  hostname.eftdomain.net -> 192.168.n.m if not already
-        if(readlink($h->{'id'})){
-            unlink($h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
-        }
-        if(readlink($h->{'id'})){
-            symlink($h->{'fixed-address'},$h->{'id'}) unless(readlink($h->{'id'}) eq $h->{'fixed-address'});
-        }else{
-            symlink($h->{'fixed-address'},$h->{'id'});
-        }
+        ln( $h->{'id'}, $h->{'fixed-address'} );
         # link  192.168.n.m -> C0A8NNMM if not already
-        if(readlink($h->{'fixed-address'})){
-            unlink($h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
-        }
-        if(readlink($h->{'fixed-address'})){
-            symlink($hexval,$h->{'fixed-address'}) unless(readlink($h->{'fixed-address'}) eq $hexval);
-        }else{
-            symlink($hexval,$h->{'fixed-address'});
-        }
+        ln( $h->{'fixed-address'}, $hexval );
 
+        ########################################################################
+        # and the template the links all point to
+        ########################################################################
         # Template out our OS PXE menu
         if($h->{'filename'} eq '"pxelinux.install"'){
             if(defined($h->{'os'})){
+                print STDERR "Templating ../pxelinux.menus/install_$h->{'id'}\n";
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
                 my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
                 my $hostname=$h->{'id'};
@@ -276,39 +256,20 @@ foreach my $h (@{ $gcfg->{'hosts'} }){
                              'ip'          => $h->{'fixed-address'},
                            };
                 $template->process($tpl_file, $vars, "../pxelinux.menus/install_$h->{'id'}");
+                ################################################################
+                # and make the final link
+                ################################################################
                 # link C0A8NNMM -> <installer>
-                unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
-                if(readlink($hexval)){
-                    symlink("../pxelinux.menus/install_$h->{'id'}",$hexval)
-                      unless(readlink($hexval) eq "../pxelinux.menus/install_$h->{'id'}");
-                }else{
-                    symlink("../pxelinux.menus/install_$h->{'id'}",$hexval);
-                }
-            }else{
-                # link C0A8NNMM -> main_menu
-                print STDERR "$h->{'id'} is set to install but has no Operating System Defined.\n";
-                if(readlink($hexval)){
-                    unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
-                }
-                if(readlink($hexval)){
-                    symlink("../pxelinux.menus/main_menu",$hexval)
-                      unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
-                }else{
-                    symlink("../pxelinux.menus/main_menu",$hexval)
-                }
-            }
-        }elsif($h->{'filename'} eq '"thinstation.nbi.zpxe"'){
-            # thinstation code #
+                print STDERR "$hexval -> ../pxelinux.menus/install_$h->{'id'}\n";
+                ln( $hexval, "../pxelinux.menus/install_$h->{'id'}" );
+             }else{
+                 # link C0A8NNMM -> main_menu
+                 ln( $hexval, "../pxelinux.menus/main_menu" );
+                 print STDERR "$h->{'id'} is set to install but has no Operating System Defined.\n";
+             }
         }else{
-            unlink($hexval) unless(readlink($hexval) eq "../pxelinux.menus/main_menu}");
-            if(readlink($hexval)){
-                symlink("../pxelinux.menus/main_menu",$hexval)
-                  unless(readlink($hexval) eq "../pxelinux.menus/main_menu");
-            }else{
-                symlink("../pxelinux.menus/main_menu",$hexval);
-            }
+             ln( $hexval, "../pxelinux.menus/main_menu" );
+             $hexval='';
         }
-        $hexval='';
     }
 }
-#print "GLOBAL: ".Data::Dumper->Dump([$gcfg]);
