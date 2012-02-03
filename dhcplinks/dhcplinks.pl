@@ -202,7 +202,6 @@ foreach my $entry (@{ $entries }){
     } 
     push(@{ $hosts },$host);
 }
-print STDERR Data::Dumper->Dump([$hosts]);
 
 ################################################################################
 # link-chain
@@ -243,7 +242,6 @@ foreach my $h (@{ $hosts }){
         # Template out our OS PXE menu
         if($h->{'filename'} eq '"pxelinux.install"'){
             if(defined($h->{'os'})){
-                print STDERR "Templating ../pxelinux.menus/install_$h->{'id'}\n";
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
                 my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
                 my $hostname=$h->{'id'};
@@ -265,7 +263,7 @@ foreach my $h (@{ $hosts }){
              }else{
                  # link C0A8NNMM -> main_menu
                  ln( $hexval, "../pxelinux.menus/main_menu" );
-                 print STDERR "$h->{'id'} is set to install but has no Operating System Defined.\n";
+                 print STDERR "$h->{'id'} is set to install but has no Operating System Defined or has no ou=Hosts entry.\n";
              }
         }else{
              ln( $hexval, "../pxelinux.menus/main_menu" );

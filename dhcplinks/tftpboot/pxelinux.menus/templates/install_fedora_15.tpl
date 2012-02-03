@@ -1,5 +1,5 @@
 # INSTALL MENU #
-menu title [% fqdn %] Quick-install
+menu title [% hostname %] Quick-install
 menu tabmsgrow 22
 menu cmdlinerow 22
 menu endrow 24
@@ -17,7 +17,7 @@ noescape 1
 timeout 50
 default pxelinux.kernels/com32/menu.c32
 
-label [% fqdn %]
-       menu label Redeploy [% fqdn %] 
-       kernel pxelinux.kernels/centos-latest/vmlinuz 
-       append initrd=pxelinux.kernels/centos-latest/initrd.img ip=dhcp ks=http://[% next_server %]/cgi-bin/kickstart.cgi text
+label brahe
+       menu label Redeploy [% fqdn %] (Fedora 15 Workstation)
+       kernel pxelinux.kernels/fedora-15/vmlinuz 
+       append initrd=pxelinux.kernels/fedora-15/initrd.img ip=dhcp ks=http://[% next_server %]/cgi-bin/kickstart.cgi text

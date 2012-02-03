@@ -12,12 +12,11 @@ menu color hotkey 35;40 #90ffff00 #00000000 std
 menu color hotsel 35;40 #90000000 #bb9999aa all
 menu color timeout_msg 35;40 #90ffffff #00000000 none menu color timeout 31;47 #eeff1010 #00000000 none
 
-prompt 0
-noescape 1
+prompt 1
 timeout 50
-default pxelinux.kernels/com32/menu.c32
+default [% fqdn %]
 
 label [% fqdn %]
-       menu label Redeploy [% fqdn %] 
-       kernel pxelinux.kernels/centos-latest/vmlinuz 
-       append initrd=pxelinux.kernels/centos-latest/initrd.img ip=dhcp ks=http://[% next_server %]/cgi-bin/kickstart.cgi text
+menu label Redeploy [% fqdn %] 
+kernel pxelinux.kernels/esxi4/mboot.c32
+append pxelinux.kernels/esxi4/vmkboot.gz ip=[% ip %] netmask=255.255.255.0 gateway=192.168.1.1 nameserver=192.168.1.54 ks=http://[% next_server %]/cgi-bin/kickstart.cgi --- pxelinux.kernels/esxi4/vmkernel.gz --- pxelinux.kernels/esxi4/sys.vgz --- pxelinux.kernels/esxi4/cim.vgz --- pxelinux.kernels/esxi4/ienviron.vgz --- pxelinux.kernels/esxi4/install.vgz
