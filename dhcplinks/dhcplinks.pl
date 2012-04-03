@@ -258,7 +258,6 @@ foreach my $h (@{ $hosts }){
                 # and make the final link
                 ################################################################
                 # link C0A8NNMM -> <installer>
-                print STDERR "$hexval -> ../pxelinux.menus/install_$h->{'id'}\n";
                 ln( $hexval, "../pxelinux.menus/install_$h->{'id'}" );
              }else{
                  # link C0A8NNMM -> main_menu

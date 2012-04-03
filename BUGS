@@ -4,6 +4,8 @@ mkvm:
 
   - did not roll back when disk space was not sufficient
   - did not get added to Operating Systems ***
+  - fails silently if LUN is not presented to the host
+  - randomly placed in resource pool if typo
   - did not set --ip in kickstart file, because it was not in windows DNS (it should add it) ***
 
 5.7 (recollections)
