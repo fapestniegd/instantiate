@@ -116,8 +116,8 @@ try(){
     # fetch the file if we don't have it.
     if [ ! -f "${FILE}" ];then
         if [ -z "${FILE}" ]; then exit 2;fi
-        echo "Fetching ${FILE} from http://backpan.perl.org/CPAN/authors/id/${first}/${firsttwo}/${URI}"
-        wget -qO "${FILE}" "http://backpan.perl.org/CPAN/authors/id/${first}/${firsttwo}/${URI}"
+        echo "Fetching ${FILE} from http://backpan.perl.org/authors/id/${first}/${firsttwo}/${URI}"
+        wget -qO "${FILE}" "http://backpan.perl.org/authors/id/${first}/${firsttwo}/${URI}"
         if [ ! -f "${FILE}" ]; then exit 3;fi
     fi
 
