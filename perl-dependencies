@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# This needs to go away and use local::lib instead
+#
 ################################################################################
 # Getting this to run on CentOS 5 proved to be impossible without overwriting
 # perl modules provided by RPMs, thus breaking all package management principles
