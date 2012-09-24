@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+$ENV{SSL_verify_mode} = 0x00;
 ################################################################################
 # A skeleton POE wrapper to test how the functionality will work in a bot
 ################################################################################
@@ -18,6 +19,7 @@ BEGIN {
                      "cpan/lib/perl5/5.8.8/i386-linux-thread-multi/",
                      "cpan/lib/perl5/site_perl/5.8.8/i386-linux-thread-multi",
                      "lib",
+                     "../lib",
                    ];
 
         foreach my $lib (@{ $vmlibs }){ if(-d "$lib"){ unshift(@INC,"$lib"); } }
@@ -333,6 +335,7 @@ if($opt->{'service'} eq 'vcenter'){
    # convert our format to what the viperl api expects
    ############################################################################
     my $guestid = 'rhel5Guest' if($opt->{'os'} eq 'CentOS 5'); # FIXME these need x64 options too.
+       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'CentOS 6');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 14');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 15');
     my ($datastore, $disksize) = split(/:/,shift(@{ $opt->{'lun'} }));
@@ -357,6 +360,7 @@ if($opt->{'service'} eq 'vcenter'){
                              'bind_dn'     => $opt->{'binddn'},
                              'password'    => $opt->{'bindpw'},
                              'dhcp_basedn' => "cn=DHCP,$opt->{'basedn'}",
+                             'sets_basedn' => "ou=Sets,$opt->{'basedn'}",
                            },
              'dhcplinks'=> "http://newton.eftdomain.net/cgi-bin/dhcplinks.cgi",
 
@@ -367,6 +371,7 @@ if($opt->{'service'} eq 'vcenter'){
                              'ipaddress'      => $opt->{'ip'},
                              'vmhost'         => $opt->{'host'},
                              'datacenter'     => $opt->{'datacenter'},
+                             'os'             => $opt->{'os'},
                              'guestid'        => $guestid,
                              'datastore'      => $datastore,
                              'disksize'       => $disksize,

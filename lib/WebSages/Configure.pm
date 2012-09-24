@@ -23,7 +23,7 @@ sub new{
         return undef;
     } 
     # ldap may be handed to us directly or in an "ldap" hash
-    foreach my $ldap_item ( "uri","base_dn", "bind_dn", "password", "dhcp_basedn"){
+    foreach my $ldap_item ( "uri","base_dn", "bind_dn", "password", "dhcp_basedn", "sets_basedn"){
          $self->{$ldap_item} = $construct->{$ldap_item}||$construct->{'ldap'}->{$ldap_item};
     }
     delete $self->{'ldap'}; # no need to store it twice
@@ -220,6 +220,25 @@ use Net::TFTP;
 sub dhcplinks_install{
     my $self = shift;
     my $cb = shift if @_;
+
+    ############################################################################
+    # dhcplinks needs an ou=Hosts entry and membership in and OS under cn=Operating Systems, so ensure they're there.
+    my $entries = $self->get_ldap_entries({
+                                            'filter' => "(cn=$cb->{'os'})",
+                                            'base'   => "ou=Operating Systems,".$self->{'sets_basedn'},
+                                            'scope'  => 'sub',
+                                          });
+    my @dnsparts = split(/\./,$cb->{'fqdn'});
+    my $basename = shift(@dnsparts);
+    my $cn="cn=$basename,ou=Hosts,dc=".join(",dc=",@dnsparts);
+    foreach my $entry (@{ $entries }) { 
+        my @members = $entry->get_value( 'uniqueMember' );
+        unless (grep(/^$cn$/,@members)){
+            $entry->add('uniqueMember' => $cn);
+            $self->ldap_entry_update($entry);
+        }
+    }
+    ############################################################################
     $self->dhcplinks($cb,'installing');
 }
 
