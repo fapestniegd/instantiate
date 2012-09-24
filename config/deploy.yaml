@@ -1,5 +1,0 @@
-hercules:
-  domain: "root@hercules.eftdomain.net"
-  deploy_to: "/usr/local/instantiate"
-  repository: "https://github.com/fapestniegd/instantiate.git"
-  branch: "master"
