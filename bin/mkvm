@@ -338,6 +338,8 @@ if($opt->{'service'} eq 'vcenter'){
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'CentOS 6');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 14');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 15');
+       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 16');
+       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 17');
     my ($datastore, $disksize) = split(/:/,shift(@{ $opt->{'lun'} }));
     my ($arch, $num_cpus, $memory) = split(/x/,$opt->{'type'});
     my $nic_network = shift(@{ $opt->{'network'} });
