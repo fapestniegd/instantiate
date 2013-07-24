@@ -1,5 +1,6 @@
 #!/usr/bin/perl
-$ENV{SSL_verify_mode} = 0x00;
+#$ENV{SSL_verify_mode} = 0x00;
+$ENV{SSL_verify_mode} = SSL_VERIFY_NONE;
 ################################################################################
 # A skeleton POE wrapper to test how the functionality will work in a bot
 ################################################################################
