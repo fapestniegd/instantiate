@@ -328,7 +328,6 @@ sub create_vm {
       return;
    }
    my $datacenter = shift @$datacenter_views;
-   my $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
    my $vm_folder_view;
    if(defined ($args->{'folder'}){
        $vm_folder_view = Vim::find_entity_view( 
