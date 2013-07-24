@@ -340,8 +340,6 @@ sub create_vm {
        $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
    }
 
-print Data::Dumper->Dump([ $vm_folder_view ]);
-exit 0;
    my $comp_res_view = Vim::get_view(mo_ref => $host_view->parent);
    my $respool_handle = $comp_res_view->resourcePool;
    my $respool_res_view = Vim::get_view(mo_ref => $comp_res_view->resourcePool);
