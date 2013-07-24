@@ -1,6 +1,6 @@
 #!/usr/bin/perl
-#$ENV{SSL_verify_mode} = 0x00;
-$ENV{SSL_verify_mode} = SSL_VERIFY_NONE;
+# $ENV{SSL_verify_mode} = 0x00;
+# $ENV{SSL_verify_mode} = SSL_VERIFY_NONE;
 ################################################################################
 # A skeleton POE wrapper to test how the functionality will work in a bot
 ################################################################################
@@ -8,6 +8,8 @@ use File::Basename;
 use strict;
 # find our installed libs and include them...
 BEGIN { 
+        $ENV{PERL_NET_HTTPS_SSL_SOCKET_CLASS} = "Net::SSL";
+        $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
         my $dir = dirname($0);
         my $vmlibs=[ 
                      "/usr/lib/vmware-vcli/apps",
