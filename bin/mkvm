@@ -342,6 +342,7 @@ if($opt->{'service'} eq 'vcenter'){
    ############################################################################
     my $guestid = 'rhel5Guest' if($opt->{'os'} eq 'CentOS 5'); # FIXME these need x64 options too.
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'CentOS 6');
+       $guestid = 'rhel6_64Guest' if($opt->{'os'} eq 'CentOS 6 x64');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 14');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 15');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 16');
