@@ -71,6 +71,7 @@ VMware:
               -dc <datacenter>  ||--datacenter=<datacenter>
               -C  <cluster>     ||--cluster=<cluster>
               -r  <respool>     ||--resourcepool=<respool>
+              -f  <folder>      ||--folder=<folder>
                                 ||--host=<esxhost>
               -l  <LUN>         ||--lun=<LUN>
               -N  <network>     ||--network=<network>
@@ -91,6 +92,7 @@ EXAMPLES:
        --datacenter=Nashville --clustter="EFTLAB"                         \
        --resourcepool="Deployment_Lab" --lun=LUN300:10485760              \
        --network=VLAN_113 --host=lab02.eftdomain.net                      \
+       --folder=lab_virtual_machines                                      \
        --type=32x1x512  --os="CentOS 5" --name="badger.lab.eftdomain.net" \
        --ip=192.168.13.162
 
@@ -121,6 +123,7 @@ my $result = GetOptions(
   'config=s'          => \$opt->{'config'},          'c=s'  => \$opt->{'config'},
   'datacenter=s'      => \$opt->{'datacenter'},      'dc=s' => \$opt->{'datacenter'},
   'domain=s'          => \$opt->{'domain'},          'd=s'  => \$opt->{'domain'},
+  'folder=s'          => \$opt->{'folder'},          'f=s'  => \$opt->{'folder'},
   'host=s'            => \$opt->{'host'},
   'ip=s'              => \$opt->{'ip'},              'i=s'  => \$opt->{'domain'},
   'install_server=s'  => \$opt->{'next-server'},     'I=s'  => \$opt->{'next-server'},
@@ -319,7 +322,7 @@ if(! defined $opt->{'ip'}){
 ################################################################################
 # If the service is vmware, we need 
 # [ username, domain, password ]
-# [ vcneter, datacenter, cluster, host, resourcepool]
+# [ vcneter, datacenter, cluster, host, resourcepool, folder]
 # [ ip(s), network(s), lun(s) ]
 # [ type, name, os ]
 ################################################################################
@@ -373,6 +376,7 @@ if($opt->{'service'} eq 'vcenter'){
                              'ipaddress'      => $opt->{'ip'},
                              'vmhost'         => $opt->{'host'},
                              'datacenter'     => $opt->{'datacenter'},
+                             'folder'         => $opt->{'folder'},
                              'os'             => $opt->{'os'},
                              'guestid'        => $guestid,
                              'datastore'      => $datastore,

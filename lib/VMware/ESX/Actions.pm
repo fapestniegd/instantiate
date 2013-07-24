@@ -329,6 +329,7 @@ sub create_vm {
    }
    my $datacenter = shift @$datacenter_views;
    my $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
+   my $folder_view = Vim::find_entity_view( view_type => 'Folder', filter => { 'name' => $args-{'folder'} }, begin_entity => $datacenter, properties => [ 'name', 'childType' ] );
    my $comp_res_view = Vim::get_view(mo_ref => $host_view->parent);
    my $respool_handle = $comp_res_view->resourcePool;
    my $respool_res_view = Vim::get_view(mo_ref => $comp_res_view->resourcePool);
