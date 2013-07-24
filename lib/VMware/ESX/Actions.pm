@@ -333,7 +333,7 @@ sub create_vm {
        $vm_folder_view = Vim::find_entity_view( 
                                                 view_type => 'Folder', 
                                                 filter => { 'name' => $args->{'folder'} }, 
-                                                begin_entity => $datacenter, 
+                                                begin_entity => $datacenter->vmFolder, 
                                              );
    }else{
        $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
