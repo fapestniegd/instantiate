@@ -329,7 +329,7 @@ sub create_vm {
    }
    my $datacenter = shift @$datacenter_views;
    my $vm_folder_view;
-   if(defined ($args->{'folder'}){
+   if(defined ($args->{'folder'})){
        $vm_folder_view = Vim::find_entity_view( 
                                                 view_type => 'Folder', 
                                                 filter => { 'name' => $args->{'folder'} }, 
