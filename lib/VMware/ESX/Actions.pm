@@ -334,7 +334,6 @@ sub create_vm {
                                                 view_type => 'Folder', 
                                                 filter => { 'name' => $args->{'folder'} }, 
                                                 begin_entity => $datacenter, 
-                                                properties => [ 'name', 'childType' ] 
                                              );
    }else{
        $vm_folder_view = Vim::get_view(mo_ref => $datacenter->vmFolder);
