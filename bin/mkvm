@@ -340,13 +340,12 @@ if($opt->{'service'} eq 'vcenter'){
    ############################################################################
    # convert our format to what the viperl api expects
    ############################################################################
-    my $guestid = 'rhel5Guest' if($opt->{'os'} eq 'CentOS 5'); # FIXME these need x64 options too.
+    my $guestid = 'rhel5Guest' if($opt->{'os'} eq 'CentOS 5'); 
+       $guestid = 'rhel5_64Guest' if($opt->{'os'} eq 'CentOS 5 x64'); 
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'CentOS 6');
        $guestid = 'rhel6_64Guest' if($opt->{'os'} eq 'CentOS 6 x64');
-       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 14');
-       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 15');
-       $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 16');
        $guestid = 'rhel6Guest' if($opt->{'os'} eq 'Fedora 17');
+       $guestid = 'rhel6_64Guest' if($opt->{'os'} eq 'Fedora 17 x64');
     my ($datastore, $disksize) = split(/:/,shift(@{ $opt->{'lun'} }));
     my ($arch, $num_cpus, $memory) = split(/x/,$opt->{'type'});
     my $nic_network = shift(@{ $opt->{'network'} });
