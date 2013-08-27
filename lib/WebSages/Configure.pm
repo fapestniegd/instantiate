@@ -199,21 +199,27 @@ use Net::TFTP;
         print STDERR "Get: [ $cb->{'next-server'}:pxelinux.cfg/$tftpfile ]\n";
         my $tftp = Net::TFTP->new($cb->{'next-server'}, BlockSize => 1024);
         $tftp->ascii;
-        my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
-        while(my $line = <$fh>){ chomp($line); push(@file,$line); }
-        if( grep(/# INSTALL MENU #/,@file) ){
-            print STDERR "mode: installing\n";
-            $mode = "installing";
-        }elsif( grep(/# MAIN MENU #/,@file) ){
-            print STDERR "mode: mainmenu\n";
-            $mode="mainmenu";
+        $tftp->get("pxelinux.cfg/$tftpfile", "/dev/null");
+        my $err = $tftp->error();
+        if ($err) { 
+            print STDERR "error retrieving file: $err\n"; 
         }else{
-            print STDERR "mode: unknown\n";
-            $mode="unknown";
+            my $fh = $tftp->get("pxelinux.cfg/$tftpfile");
+            while(my $line = <$fh> ) { chomp($line); push(@file,$line); }
+            if( grep(/# INSTALL MENU #/,@file) ){
+                print STDERR "mode: installing\n";
+                $mode = "installing";
+            }elsif( grep(/# MAIN MENU #/,@file) ){
+                print STDERR "mode: mainmenu\n";
+                $mode="mainmenu";
+            }else{
+                print STDERR "mode: unknown\n";
+                $mode="unknown";
+            }
         }
         print STDERR "tftp boot file mode: [ $mode ]. Waiting for '$lookfor'\n";
         sleep 10 unless($mode eq "installing");
-    }
+   }
     return 0;
 }
 
