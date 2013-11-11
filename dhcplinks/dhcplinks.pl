@@ -111,7 +111,7 @@ sub sets_for{
     foreach my $entry ($mesg->entries) { 
         my $set = $entry->dn();
         $set =~s/, */,/g;
-        $set=~s/,$base$//;
+        $set=~s/,$base$//i;
         my @sets_tree=split(/,/,$set);
         my @newset;
         foreach my $subset (reverse(@sets_tree)){
@@ -190,7 +190,7 @@ foreach my $entry (@{ $entries }){
                    foreach my $set (@{ $sets }){
                    print "set: $set\n" if(grep(/$host->{'id'}/,@trace_hosts));
                        my($category, $member)=split(/::/,$set);
-                       if($category eq "Operating Systems"){
+                       if($category =~m/Operating Systems/i){
                            $host->{'os'} = $member;
                        }
                    }
@@ -208,6 +208,7 @@ foreach my $entry (@{ $entries }){
 ################################################################################
 chdir("$cfg->{'tftpboot'}/pxelinux.cfg");
 foreach my $h (@{ $hosts }){
+   print Data::Dumper->Dump([$h]) if(grep(/$h->{'id'}/,@trace_hosts));
    if($h->{'filename'}){
        next unless $h->{'id'};
        $h->{'hardware'}=~s/.*ethernet\s+//g;
@@ -241,6 +242,7 @@ foreach my $h (@{ $hosts }){
         ########################################################################
         # Template out our OS PXE menu
         if($h->{'filename'} eq '"pxelinux.install"'){
+            print Data::Dumper->Dump([{ 'Operating System' => $h->{os} }]) if(grep(/$h->{'id'}/,@trace_hosts));
             if(defined($h->{'os'})){
                 my $template = Template->new({'INCLUDE_PATH' => $cfg->{'tftpboot'}."/pxelinux.menus/templates"});
                 my $tpl_file = "install_".$h->{'os'}.".tpl"; $tpl_file=~tr/A-Z/a-z/; $tpl_file=~s/\s/_/g;
@@ -261,11 +263,11 @@ foreach my $h (@{ $hosts }){
                 ln( $hexval, "../pxelinux.menus/install_$h->{'id'}" );
              }else{
                  # link C0A8NNMM -> main_menu
-                 ln( $hexval, "../pxelinux.menus/main_menu" );
+                 ln( $hexval, "../pxelinux.menus/main_menu" ) unless($h->{id}=~m/^skrs[0-9]{4,4}/);
                  print STDERR "$h->{'id'} is set to install but has no Operating System Defined or has no ou=Hosts entry.\n";
              }
         }else{
-             ln( $hexval, "../pxelinux.menus/main_menu" );
+             ln( $hexval, "../pxelinux.menus/main_menu" ) unless($h->{id}=~m/^skrs[0-9]{4,4}/);
              $hexval='';
         }
     }
